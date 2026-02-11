@@ -1,5 +1,6 @@
 package com.hunterstich.jetbridge.vim
 
+import com.hunterstich.jetbridge.vim.provider.GeminiCLIProvider
 import com.hunterstich.jetbridge.vim.provider.OpenCodeProvider
 import com.intellij.openapi.ui.Messages
 import com.maddyhome.idea.vim.api.ExecutionContext
@@ -12,7 +13,8 @@ import com.maddyhome.idea.vim.extension.VimExtension
 import java.util.EnumSet
 import javax.swing.text.JTextComponent
 
-val provider = OpenCodeProvider()
+//val provider = OpenCodeProvider()
+val provider = GeminiCLIProvider()
 
 class JetbridgeVimExtension : VimExtension {
 
@@ -39,7 +41,7 @@ private val askPromptHandler = object : ExtensionHandler {
         // Get either the current line if nothing is selected, or the entire selected
         // block
         // Capture context
-        var selectionContext = "${editor.getPath()}"
+        var selectionContext = "path:${editor.getPath()}"
         val caret = editor.primaryCaret()
         if (caret.hasSelection()) {
             // Start Position
