@@ -1,12 +1,12 @@
 <idea-plugin>
-    <id>com.example.gemini.vim-extension</id>
-    <name>Gemini Vim Extension</name>
-    <vendor>Gemini</vendor>
+    <id>com.hunterstich.jetbridge.vim-extension</id>
+    <name>Jetbridge</name>
+    <vendor>Hunter Stich</vendor>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>IdeaVIM</depends>
 
     <extensions defaultExtensionNs="IdeaVIM">
-        <vimExtension implementation="com.example.gemini.vim.GeminiVimExtension" name="gemini-vim"/>
+        <vimExtension implementation="com.hunterstich.jetbridge.vim.JetbridgeVimExtension" name="jetbridge"/>
     </extensions>
 </idea-plugin>

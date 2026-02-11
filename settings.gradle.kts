@@ -1,1 +1,1 @@
-rootProject.name = "gemini-vim-extension"
+rootProject.name = "jetbridge-vim-extension"

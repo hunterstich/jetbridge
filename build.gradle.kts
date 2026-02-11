@@ -1,10 +1,12 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
-    java
     id("org.jetbrains.intellij.platform") version "2.11.0"
-    id("org.jetbrains.kotlin.jvm")version "2.1.21"
+    id("org.jetbrains.kotlin.jvm") version "2.3.0"
+    kotlin("plugin.serialization") version "2.3.0"
 }
 
-group = "com.example.gemini"
+group = "com.hunterstich.jetbridge"
 version = "0.0.1"
 
 repositories {
@@ -66,14 +68,14 @@ kotlin {
 
 tasks {
     compileKotlin {
-        kotlinOptions {
-            jvmTarget = "17"
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
         }
     }
 
     compileTestKotlin {
-        kotlinOptions {
-            jvmTarget = "17"
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
         }
     }
 

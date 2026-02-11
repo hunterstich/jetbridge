@@ -1,5 +1,6 @@
-package com.example.gemini.vim
+package com.hunterstich.jetbridge.vim
 
+import com.hunterstich.jetbridge.vim.provider.OpenCodeProvider
 import com.intellij.openapi.ui.Messages
 import com.maddyhome.idea.vim.api.ExecutionContext
 import com.maddyhome.idea.vim.api.VimEditor
@@ -11,8 +12,11 @@ import com.maddyhome.idea.vim.extension.VimExtension
 import java.util.EnumSet
 import javax.swing.text.JTextComponent
 
-class GeminiVimExtension : VimExtension {
-    override fun getName(): String = "gemini"
+val provider = OpenCodeProvider()
+
+class JetbridgeVimExtension : VimExtension {
+
+    override fun getName(): String = "jetbridge"
 
     override fun init() {
         injector.keyGroup.putKeyMapping(
@@ -58,7 +62,7 @@ private val askPromptHandler = object : ExtensionHandler {
         val dialog = object : Messages.InputDialog(
             null,
             "Enter your prompt:",
-            "Gemini Prompt",
+            "${provider.displayName} prompt",
             Messages.getQuestionIcon(),
             "",
             null
@@ -87,7 +91,8 @@ private val askPromptHandler = object : ExtensionHandler {
 
         var prompt = "$selectionContext: $userInput"
 
-        // TODO: Replace with a send off to gemini
+        // TODO: Replace with a send off to the provider
+        provider.prompt(prompt)
         injector.messages.showStatusBarMessage(editor, prompt)
     }
 }
