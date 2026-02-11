@@ -1,0 +1,12 @@
+<idea-plugin>
+    <id>com.example.gemini.vim-extension</id>
+    <name>Gemini Vim Extension</name>
+    <vendor>Gemini</vendor>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>IdeaVIM</depends>
+
+    <extensions defaultExtensionNs="IdeaVIM">
+        <vimExtension implementation="com.example.gemini.vim.GeminiVimExtension" name="gemini-vim"/>
+    </extensions>
+</idea-plugin>
