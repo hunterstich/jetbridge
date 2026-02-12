@@ -1,28 +1,33 @@
-# Jetbridge
-Jetbridge is a custom IdeaVim extension for Jetbrains IDEs that adds keybindings for interacting 
-with an AI code assistant provider like opencode, gemini-cli, or Gemini in Android Studio. Inspired 
-by[opencode.nvim](https://github.com/nickjvandyke/opencode.nvim).
+# jetbridge
+IdeaVim extension that lets you interact 
+with an AI code assistant like opencode or gemini-cli. Similar to 
+ [opencode.nvim](https://github.com/nickjvandyke/opencode.nvim).
 
 ## Installation
-1. Build the plugin: `./gradlew buildPlugin`
-2. Install the resulting ZIP from `build/distributions/` into your IntelliJ IDEA through
+1. Make sure IdeaVIM is installed in your Intellij or Android Studio
+2. Clone the repo
+3. Build the plugin: `./gradlew buildPlugin`
+4. Install the resulting ZIP from `build/distributions/` into your IDE through
    the "Settings > Plugins > Install plugins from disk" option
-3. Enable the extension in your `.ideavimrc` with:
+5. Enable the extension in your `.ideavimrc` with:
    ```vim
    set jetbridge
    ```
-   
-## Usage
-To use jetbridge, fist start one of the supported providers:
+ 
+## Keybinding defaults
+With a provider running (see [Providers] section):
+* `<leader>oa` Ask the provider about current line or selection  
+
+## Providers
 
 ### OpenCode
-With the plugin installed, start an open code session in a terminal (either in the IDE or in a 
-separate terminal window) with `opencode --port 3000`.
+* Start opencode in a terminal with `opencode --port 3000`
+* When in the editor, use keybidnings to interact with opencode running
+in your terminal
+
 
 ### Gemini-CLI
-In a local terminal, start Gemini-CLI in a tmux session named "gemini" 
-with `tmux new-session -s gemini 'gemini'`. This is a limitation of the gemini-cli tool which
-doesn't have a direct way to interact with the TUI and instead has to be sent keys through tmux.
+* Start gemini-cli in a tmux session with `tmux new-session -s gemini 'gemini' (gemini-cli
+doesn't have a supported way of controlling the TUI and it's being done by sending 
+tmux events)
 
-## Keybinding defaults
-* `<leader>oa` Ask the provider about current line or selection
