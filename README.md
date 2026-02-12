@@ -32,5 +32,8 @@ tmux events)
 
 ## Develop
 1. Import the project
-2. 
+2. Add `set jetbridge` to your `~/.ideavimrc`
+3. run `./gradlew runIde` to launch a sandboxed version of Intellij with IdeaVIM and 
+jetbridge installed
+
 
