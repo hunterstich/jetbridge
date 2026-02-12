@@ -93,7 +93,6 @@ private val askPromptHandler = object : ExtensionHandler {
 
         var prompt = "$selectionContext: $userInput"
 
-        // TODO: Replace with a send off to the provider
         provider.prompt(prompt)
         injector.messages.showStatusBarMessage(editor, prompt)
     }

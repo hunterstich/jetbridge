@@ -21,7 +21,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
 
     intellijPlatform {
-        intellijIdeaCommunity("2025.1")
+        androidStudio("2025.1.1.13")
+//        intellijIdeaCommunity("2025.1")
         plugins("IdeaVIM:2.24.0")
         pluginVerifier()
     }

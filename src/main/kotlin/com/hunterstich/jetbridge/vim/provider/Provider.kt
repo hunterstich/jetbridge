@@ -1,5 +1,9 @@
 package com.hunterstich.jetbridge.vim.provider
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.net.ProxySelector
 import java.net.URI
 import java.net.http.HttpClient
@@ -9,6 +13,7 @@ import java.util.concurrent.CompletableFuture
 
 interface Provider {
     val displayName: String
+    // TODO: Add return type with status/error
     fun prompt(prompt: String)
 }
 
@@ -19,7 +24,7 @@ class OpenCodeProvider : Provider {
         get() = "3000"
 
     private val baseUri: String
-        get() = "http://localhost:$port/"
+        get() = "http://localhost:$port"
 
     override val displayName: String = "opencode"
 
@@ -35,6 +40,7 @@ class OpenCodeProvider : Provider {
                 if (response.body() == "true") {
                     client.sendAsync(getSubmitPromptRequest(), HttpResponse.BodyHandlers.ofString())
                 } else {
+                    println("Unable to append prompt to opencode")
                     CompletableFuture.completedFuture(null)
                 }
             }
@@ -70,15 +76,20 @@ class OpenCodeProvider : Provider {
 class GeminiCLIProvider : Provider {
 
     override val displayName: String = "gemini-cli"
+    private val scope = CoroutineScope(Dispatchers.IO)
 
     override fun prompt(prompt: String) {
-        try {
-            // Append to gemini
-            ProcessBuilder("tmux", "send-keys", "-t", "gemini", prompt).start()
-            // Submit the prompt
-            ProcessBuilder("tmux", "send-keys", "-t", "gemini", "C-m").start()
-        } catch (e: Exception) {
-            e.printStackTrace()
+        scope.launch {
+            try {
+                // Append to gemini
+                ProcessBuilder("tmux", "send-keys", "-t", "gemini", prompt).start()
+                delay(100)
+                // Submit the prompt
+                ProcessBuilder("tmux", "send-keys", "-t", "gemini", "C-m").start()
+            } catch (e: Exception) {
+                println("Error sending prompt to tmux for gemini-cli: ${e.message}")
+                e.printStackTrace()
+            }
         }
     }
 }
