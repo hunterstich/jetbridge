@@ -1,12 +1,12 @@
 <idea-plugin>
-    <id>com.hunterstich.jetbridge.vim-extension</id>
-    <name>Jetbridge</name>
+    <id>com.hunterstich.ideavim.jetbridge</id>
+    <name>jetbridge</name>
     <vendor>Hunter Stich</vendor>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>IdeaVIM</depends>
 
     <extensions defaultExtensionNs="IdeaVIM">
-        <vimExtension implementation="com.hunterstich.jetbridge.vim.JetbridgeVimExtension" name="jetbridge"/>
+        <vimExtension implementation="com.hunterstich.ideavim.jetbridge.JetbridgeVimExtension" name="jetbridge"/>
     </extensions>
 </idea-plugin>

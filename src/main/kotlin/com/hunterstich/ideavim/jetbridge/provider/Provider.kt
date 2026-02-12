@@ -1,4 +1,4 @@
-package com.hunterstich.jetbridge.vim.provider
+package com.hunterstich.jetbridge.provider
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

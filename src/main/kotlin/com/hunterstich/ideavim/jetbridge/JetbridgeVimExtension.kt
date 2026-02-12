@@ -1,7 +1,7 @@
-package com.hunterstich.jetbridge.vim
+package com.hunterstich.ideavim.jetbridge
 
-import com.hunterstich.jetbridge.vim.provider.GeminiCLIProvider
-import com.hunterstich.jetbridge.vim.provider.OpenCodeProvider
+import com.hunterstich.jetbridge.provider.GeminiCLIProvider
+import com.hunterstich.jetbridge.provider.OpenCodeProvider
 import com.intellij.openapi.ui.Messages
 import com.maddyhome.idea.vim.api.ExecutionContext
 import com.maddyhome.idea.vim.api.VimEditor
@@ -13,8 +13,8 @@ import com.maddyhome.idea.vim.extension.VimExtension
 import java.util.EnumSet
 import javax.swing.text.JTextComponent
 
-//val provider = OpenCodeProvider()
-val provider = GeminiCLIProvider()
+val provider = OpenCodeProvider()
+//val provider = GeminiCLIProvider()
 
 class JetbridgeVimExtension : VimExtension {
 

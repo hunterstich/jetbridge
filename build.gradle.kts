@@ -6,7 +6,7 @@ plugins {
     kotlin("plugin.serialization") version "2.3.0"
 }
 
-group = "com.hunterstich.jetbridge"
+group = "com.hunterstich.ideavim.jetbridge"
 version = "0.0.1"
 
 repositories {
@@ -21,8 +21,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
 
     intellijPlatform {
-        androidStudio("2025.1.1.13")
-//        intellijIdeaCommunity("2025.1")
+//        androidStudio("2025.1.1.13")
+        intellijIdeaCommunity("2025.1")
         plugins("IdeaVIM:2.24.0")
         pluginVerifier()
     }

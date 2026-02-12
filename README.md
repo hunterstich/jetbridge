@@ -25,9 +25,12 @@ With a provider running (see [Providers] section):
 * When in the editor, use keybidnings to interact with opencode running
 in your terminal
 
-
 ### Gemini-CLI
 * Start gemini-cli in a tmux session with `tmux new-session -s gemini 'gemini' (gemini-cli
 doesn't have a supported way of controlling the TUI and it's being done by sending 
 tmux events)
+
+## Develop
+1. Import the project
+2. 
 
