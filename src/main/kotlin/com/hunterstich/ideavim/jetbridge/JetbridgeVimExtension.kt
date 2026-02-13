@@ -43,7 +43,7 @@ class JetbridgeVimExtension : VimExtension {
 }
 
 private fun VimExtension.addKeyMapping(
-    keys: String, // e.g. "<leader>oa"
+    keys: String,
     promptPrefix: String = "",
     modes: EnumSet<MappingMode> = EnumSet.of(MappingMode.NORMAL, MappingMode.VISUAL),
     recursive: Boolean = false
