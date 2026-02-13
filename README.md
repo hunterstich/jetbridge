@@ -1,10 +1,10 @@
 # jetbridge
 IdeaVim extension that lets you interact 
-with an AI code assistant like opencode or gemini-cli. Similar to 
+with an AI code assistant like opencode or gemini-cli. Inspired by 
  [opencode.nvim](https://github.com/nickjvandyke/opencode.nvim).
 
 ## Installation
-1. Make sure IdeaVIM is installed in your Intellij or Android Studio
+1. Make sure IdeaVIM is installed in Intellij or Android Studio
 2. Clone the repo
 3. Build the plugin: `./gradlew buildPlugin`
 4. Install the resulting ZIP from `build/distributions/` into your IDE through
@@ -21,7 +21,7 @@ With a provider running (see [Providers] section):
 ## Providers
 
 ### OpenCode
-* Start opencode in a terminal with `opencode --port 3000`
+* Start opencode in a terminal with `opencode --port`
 * When in the editor, use keybidnings to interact with opencode running
 in your terminal
 

@@ -19,6 +19,7 @@ repositories {
 dependencies {
     compileOnly("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlin:kotlin-test:2.3.10")
 
     intellijPlatform {
 //        androidStudio("2025.1.1.13")

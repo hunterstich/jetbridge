@@ -1,7 +1,6 @@
 package com.hunterstich.ideavim.jetbridge
 
-import com.hunterstich.jetbridge.provider.GeminiCLIProvider
-import com.hunterstich.jetbridge.provider.OpenCodeProvider
+import com.hunterstich.ideavim.jetbridge.provider.OpenCodeProvider
 import com.hunterstich.jetbridge.provider.ProviderMessage
 import com.intellij.openapi.ui.Messages
 import com.maddyhome.idea.vim.api.ExecutionContext
@@ -17,8 +16,9 @@ import kotlinx.coroutines.launch
 import java.util.EnumSet
 import javax.swing.text.JTextComponent
 
-internal val provider = OpenCodeProvider()
-// val provider = GeminiCLIProvider()
+// TODO: Add way to switch providers while running
+private val provider = OpenCodeProvider()
+// private val provider = GeminiCliProvider()
 
 class JetbridgeVimExtension : VimExtension {
 
