@@ -2,6 +2,7 @@ package com.hunterstich.ideavim.jetbridge
 
 import com.hunterstich.jetbridge.provider.GeminiCLIProvider
 import com.hunterstich.jetbridge.provider.OpenCodeProvider
+import com.hunterstich.jetbridge.provider.ProviderMessage
 import com.intellij.openapi.ui.Messages
 import com.maddyhome.idea.vim.api.ExecutionContext
 import com.maddyhome.idea.vim.api.VimEditor
@@ -10,6 +11,9 @@ import com.maddyhome.idea.vim.command.MappingMode
 import com.maddyhome.idea.vim.command.OperatorArguments
 import com.maddyhome.idea.vim.extension.ExtensionHandler
 import com.maddyhome.idea.vim.extension.VimExtension
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.EnumSet
 import javax.swing.text.JTextComponent
 
@@ -17,6 +21,8 @@ internal val provider = OpenCodeProvider()
 // val provider = GeminiCLIProvider()
 
 class JetbridgeVimExtension : VimExtension {
+
+    private val scope = CoroutineScope(Dispatchers.IO)
 
     override fun getName(): String = "jetbridge"
 
@@ -28,6 +34,15 @@ class JetbridgeVimExtension : VimExtension {
             askPromptHandler,
             false
         )
+
+        scope.launch {
+            provider.messages.collect { msg ->
+                when (msg) {
+                    is ProviderMessage.Status -> println("status: ${msg.message}")
+                    is ProviderMessage.Error -> println("error: ${msg.error}")
+                }
+            }
+        }
     }
 }
 
