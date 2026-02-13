@@ -27,13 +27,9 @@ class JetbridgeVimExtension : VimExtension {
     override fun getName(): String = "jetbridge"
 
     override fun init() {
-        injector.keyGroup.putKeyMapping(
-            EnumSet.of(MappingMode.NORMAL, MappingMode.VISUAL),
-            injector.parser.parseKeys("<leader>oa"),
-            owner,
-            askPromptHandler,
-            false
-        )
+        addKeyMapping("<leader>oo")
+        addKeyMapping("<leader>oa", "@this ")
+        addKeyMapping("<leader>ob", "@buffer ")
 
         scope.launch {
             provider.messages.collect { msg ->
@@ -46,18 +42,34 @@ class JetbridgeVimExtension : VimExtension {
     }
 }
 
-private val askPromptHandler = object : ExtensionHandler {
+private fun VimExtension.addKeyMapping(
+    keys: String, // e.g. "<leader>oa"
+    promptPrefix: String = "",
+    modes: EnumSet<MappingMode> = EnumSet.of(MappingMode.NORMAL, MappingMode.VISUAL),
+    recursive: Boolean = false
+) {
+    injector.keyGroup.putKeyMapping(
+        modes,
+        injector.parser.parseKeys(keys),
+        owner,
+        promptHandler(promptPrefix),
+        recursive
+    )
+}
 
-    override fun execute(
-        editor: VimEditor,
-        context: ExecutionContext,
-        operatorArguments: OperatorArguments
-    ) {
-        val userInput = captureDialogInput("@this ") ?: return
-        var prompt = userInput.expandMacros(editor)
+fun promptHandler(initialInput: String = ""): ExtensionHandler {
+    return object : ExtensionHandler {
+        override fun execute(
+            editor: VimEditor,
+            context: ExecutionContext,
+            operatorArguments: OperatorArguments
+        ) {
+            val userInput = captureDialogInput(initialInput) ?: return
+            val prompt = userInput.expandMacros(editor)
 
-        provider.prompt(prompt)
-        injector.messages.showStatusBarMessage(editor, prompt)
+            provider.prompt(prompt)
+            injector.messages.showStatusBarMessage(editor, prompt)
+        }
     }
 }
 
@@ -66,7 +78,7 @@ private fun captureDialogInput(prepopulatedText: String): String? {
     // uses the initialText as a hint that is overwritten when typing starts.
     val dialog = object : Messages.InputDialog(
         null,
-        "Enter your prompt:",
+        "",
         "${provider.displayName} prompt",
         Messages.getQuestionIcon(),
         "",
@@ -90,7 +102,7 @@ private fun captureDialogInput(prepopulatedText: String): String? {
  * Expand available macros
  *
  * `@this`: <@file path> <L:C-L:C>
- * TODO: Others
+ * `@buffer`: entire buffer contents
  */
 private fun String.expandMacros(editor: VimEditor): String {
     var result = this
@@ -98,15 +110,12 @@ private fun String.expandMacros(editor: VimEditor): String {
         var value = "@${editor.getPath()}"
         val caret = editor.primaryCaret()
         if (caret.hasSelection()) {
-            // Start Position
             val startOffset = caret.selectionStart
             val startPos = editor.offsetToBufferPosition(startOffset)
 
-            // End Position
             val endOffset = caret.selectionEnd
             val endPos = editor.offsetToBufferPosition(endOffset)
 
-            // Format: Line:Column-Line:Column (1-based line for readability if desired)
             value += " L${startPos.line + 1}:C${startPos.column}-L${endPos.line + 1}:C${endPos.column}"
         } else {
             val line = caret.getBufferPosition().line
@@ -116,7 +125,12 @@ private fun String.expandMacros(editor: VimEditor): String {
         result = result.replace("@this", value)
     }
 
-    // TODO: Replace other macros
+    // TODO: Expand @buffer
+//    if (result.contains("@buffer")) {
+//        editor.text()
+//        val bufferText = editor.text().toString()
+//        result = result.replace("@buffer", bufferText)
+//    }
 
     return result
 }

@@ -115,7 +115,7 @@ class OpenCodeProvider : Provider {
 
         this.ip = ip
         this.port = port
-        return true;
+        return true
     }
 }
 
