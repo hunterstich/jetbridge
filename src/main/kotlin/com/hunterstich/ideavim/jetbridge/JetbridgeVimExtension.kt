@@ -13,8 +13,8 @@ import com.maddyhome.idea.vim.extension.VimExtension
 import java.util.EnumSet
 import javax.swing.text.JTextComponent
 
-val provider = OpenCodeProvider()
-//val provider = GeminiCLIProvider()
+internal val provider = OpenCodeProvider()
+// val provider = GeminiCLIProvider()
 
 class JetbridgeVimExtension : VimExtension {
 
@@ -38,10 +38,49 @@ private val askPromptHandler = object : ExtensionHandler {
         context: ExecutionContext,
         operatorArguments: OperatorArguments
     ) {
-        // Get either the current line if nothing is selected, or the entire selected
-        // block
-        // Capture context
-        var selectionContext = "path:${editor.getPath()}"
+        val userInput = captureDialogInput("@this ") ?: return
+        var prompt = userInput.expandMacros(editor)
+
+        provider.prompt(prompt)
+        injector.messages.showStatusBarMessage(editor, prompt)
+    }
+}
+
+private fun captureDialogInput(prepopulatedText: String): String? {
+    // Create a custom dialog to control the text field behavior. The standard showInputDialog
+    // uses the initialText as a hint that is overwritten when typing starts.
+    val dialog = object : Messages.InputDialog(
+        null,
+        "Enter your prompt:",
+        "${provider.displayName} prompt",
+        Messages.getQuestionIcon(),
+        "",
+        null
+    ) {
+
+        override fun createTextFieldComponent(): JTextComponent? {
+            val tf = super.createTextFieldComponent()
+            javax.swing.SwingUtilities.invokeLater {
+                tf.text = prepopulatedText
+            }
+            return tf
+        }
+    }
+
+    dialog.show()
+    return if (dialog.isOK) dialog.inputString else null
+}
+
+/**
+ * Expand available macros
+ *
+ * `@this`: <@file path> <L:C-L:C>
+ * TODO: Others
+ */
+private fun String.expandMacros(editor: VimEditor): String {
+    var result = this
+    if (result.contains("@this")) {
+        var value = "@${editor.getPath()}"
         val caret = editor.primaryCaret()
         if (caret.hasSelection()) {
             // Start Position
@@ -53,47 +92,16 @@ private val askPromptHandler = object : ExtensionHandler {
             val endPos = editor.offsetToBufferPosition(endOffset)
 
             // Format: Line:Column-Line:Column (1-based line for readability if desired)
-            selectionContext += " L${startPos.line + 1}:C${startPos.column}-L${endPos.line + 1}:C${endPos.column}"
+            value += " L${startPos.line + 1}:C${startPos.column}-L${endPos.line + 1}:C${endPos.column}"
         } else {
             val line = caret.getBufferPosition().line
-            selectionContext += " L${line}"
+            value += " L${line}"
         }
 
-        // Create a custom dialog to control the text field behavior. The standard showInputDialog
-        // uses the initialText as a hint that is overwritten when typing starts.
-        val dialog = object : Messages.InputDialog(
-            null,
-            "Enter your prompt:",
-            "${provider.displayName} prompt",
-            Messages.getQuestionIcon(),
-            "",
-            null
-        ) {
-
-            override fun createTextFieldComponent(): JTextComponent? {
-                val tf = super.createTextFieldComponent()
-                javax.swing.SwingUtilities.invokeLater {
-                    tf.text = "@this "
-                }
-                return tf;
-            }
-        }
-
-        dialog.show()
-        val userInput = if (dialog.isOK) dialog.inputString else null
-        if (userInput == null) {
-            // Do nothing without a prompt
-            return
-        }
-
-        // TODO: Find and replace all macros: `@this`, `@buffer`, `@buffers`, `@visible`, etc.
-
-        // macros:
-        // @this <@src file path> <L:C-L:C>
-
-        var prompt = "$selectionContext: $userInput"
-
-        provider.prompt(prompt)
-        injector.messages.showStatusBarMessage(editor, prompt)
+        result = result.replace("@this", value)
     }
+
+    // TODO: Replace other macros
+
+    return result
 }

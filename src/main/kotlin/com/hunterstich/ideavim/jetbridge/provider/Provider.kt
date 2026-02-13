@@ -1,5 +1,6 @@
 package com.hunterstich.jetbridge.provider
 
+import com.intellij.util.io.awaitExit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -19,6 +20,8 @@ interface Provider {
 
 class OpenCodeProvider : Provider {
 
+    private val scope = CoroutineScope(Dispatchers.IO)
+
     // TODO: Find instead of hardcode
     private val port: String
         get() = "3000"
@@ -34,6 +37,7 @@ class OpenCodeProvider : Provider {
         .build()
 
     override fun prompt(prompt: String) {
+//        findOpencodeServerPort()
         client.sendAsync(getAppendPromptRequest(prompt), HttpResponse.BodyHandlers.ofString())
             .thenCompose { response ->
                 // TODO: Change to check status instead?
@@ -61,6 +65,40 @@ class OpenCodeProvider : Provider {
             .setHeader("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.noBody())
             .build()
+    }
+
+    private fun findOpencodeServerPort() {
+        scope.launch {
+
+            // Find the process that was started with `opencode --port`
+            val pGrepOutput = mutableListOf<String>()
+            ProcessBuilder("pgrep", "-f", "opencode.*--port").start().let {
+                it.inputStream
+                    .bufferedReader()
+                    .lines()
+                    .forEach { l -> pGrepOutput.add(l) }
+                it.awaitExit()
+            }
+            val process: String? = pGrepOutput.firstOrNull { it.toIntOrNull() != null }
+
+            // Use the PID to look up the port opencode is running on
+            if (process != null) {
+                val lsofOutput = mutableListOf<String>()
+                ProcessBuilder("lsof", "-w", "-iTCP",
+                    "-sTCP:LISTEN", "-P", "-n", "-a", "-p", process)
+                    .start().let {
+                        it.inputStream
+                            .bufferedReader()
+                            .lines()
+                            .forEach { l -> lsofOutput.add(l) }
+                        it.awaitExit()
+                    }
+                println("lsofOutput: $lsofOutput")
+                // TODO: For valid output and parse out port number
+            } else {
+                // TODO: Show error message that a running opencode could not be found
+            }
+        }
     }
 }
 
