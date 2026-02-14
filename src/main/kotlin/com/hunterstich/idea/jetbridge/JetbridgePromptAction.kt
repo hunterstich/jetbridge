@@ -1,6 +1,6 @@
-package com.hunterstich.ideavim.jetbridge
+package com.hunterstich.idea.jetbridge
 
-import com.hunterstich.ideavim.jetbridge.provider.OpenCodeProvider
+import com.hunterstich.idea.jetbridge.provider.OpenCodeProvider
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys

@@ -1,7 +1,7 @@
-package com.hunterstich.ideavim.jetbridge
+package com.hunterstich.idea.jetbridge
 
-import com.hunterstich.jetbridge.provider.Bus
-import com.hunterstich.jetbridge.provider.ProviderMessage
+import com.hunterstich.idea.jetbridge.provider.Bus
+import com.hunterstich.idea.jetbridge.provider.ProviderMessage
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity

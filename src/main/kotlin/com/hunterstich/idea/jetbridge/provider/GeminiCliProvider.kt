@@ -1,7 +1,7 @@
-package com.hunterstich.ideavim.jetbridge.provider
+package com.hunterstich.idea.jetbridge.provider
 
-import com.hunterstich.jetbridge.provider.Provider
-import com.hunterstich.jetbridge.provider.ProviderMessage
+import com.hunterstich.idea.jetbridge.provider.Provider
+import com.hunterstich.idea.jetbridge.provider.ProviderMessage
 import com.intellij.openapi.editor.Editor
 import com.maddyhome.idea.vim.api.VimEditor
 import kotlinx.coroutines.CoroutineScope

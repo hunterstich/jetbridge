@@ -6,7 +6,7 @@ plugins {
     kotlin("plugin.serialization") version "2.3.0"
 }
 
-group = "com.hunterstich.ideavim.jetbridge"
+group = "com.hunterstich.idea.jetbridge"
 version = "0.0.1"
 
 repositories {

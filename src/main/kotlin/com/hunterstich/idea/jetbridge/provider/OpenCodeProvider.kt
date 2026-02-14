@@ -1,8 +1,8 @@
-package com.hunterstich.ideavim.jetbridge.provider
+package com.hunterstich.idea.jetbridge.provider
 
-import com.hunterstich.jetbridge.provider.Bus
-import com.hunterstich.jetbridge.provider.Provider
-import com.hunterstich.jetbridge.provider.ProviderMessage
+import com.hunterstich.idea.jetbridge.provider.Bus
+import com.hunterstich.idea.jetbridge.provider.Provider
+import com.hunterstich.idea.jetbridge.provider.ProviderMessage
 import com.intellij.openapi.editor.Editor
 import com.intellij.util.io.awaitExit
 import kotlinx.coroutines.CoroutineScope

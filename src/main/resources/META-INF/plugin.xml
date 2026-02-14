@@ -1,18 +1,18 @@
 <idea-plugin>
-    <id>com.hunterstich.ideavim.jetbridge</id>
+    <id>com.hunterstich.idea.jetbridge</id>
     <name>jetbridge</name>
     <vendor>Hunter Stich</vendor>
 
     <depends>com.intellij.modules.platform</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <postStartupActivity implementation="com.hunterstich.ideavim.jetbridge.Jetbridge"/>
+        <postStartupActivity implementation="com.hunterstich.idea.jetbridge.Jetbridge"/>
     </extensions>
 
     <actions>
         <action
             id="Jetbridge.PromptAction"
-            class="com.hunterstich.ideavim.jetbridge.JetbridgePromptAction"
+            class="com.hunterstich.idea.jetbridge.JetbridgePromptAction"
             text="Jetbridge: Prompt"
             description="Send a prompt to a provider" />
     </actions>

@@ -1,4 +1,4 @@
-package com.hunterstich.jetbridge.provider
+package com.hunterstich.idea.jetbridge.provider
 
 import com.intellij.openapi.editor.Editor
 import kotlinx.coroutines.Dispatchers

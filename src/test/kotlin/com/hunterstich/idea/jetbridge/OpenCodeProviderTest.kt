@@ -1,4 +1,4 @@
-package com.hunterstich.ideavim.jetbridge
+package com.hunterstich.idea.jetbridge
 
 import org.junit.Test
 import kotlin.test.assertEquals
