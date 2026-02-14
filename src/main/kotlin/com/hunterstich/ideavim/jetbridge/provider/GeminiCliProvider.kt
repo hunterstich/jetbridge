@@ -27,7 +27,7 @@ class GeminiCliProvider : Provider {
     private val _messages = MutableSharedFlow<ProviderMessage>(replay = 0)
     override val messages: SharedFlow<ProviderMessage> = _messages.asSharedFlow()
 
-    override fun prompt(prompt: String) {
+    override fun prompt(prompt: String, filePath: String?) {
         scope.launch {
             try {
                 // Append to gemini

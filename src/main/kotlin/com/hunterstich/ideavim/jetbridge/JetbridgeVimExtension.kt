@@ -2,6 +2,8 @@ package com.hunterstich.ideavim.jetbridge
 
 import com.hunterstich.ideavim.jetbridge.provider.OpenCodeProvider
 import com.hunterstich.jetbridge.provider.ProviderMessage
+import com.intellij.openapi.project.currentOrDefaultProject
+import com.intellij.openapi.project.projectsDataDir
 import com.intellij.openapi.ui.Messages
 import com.maddyhome.idea.vim.api.ExecutionContext
 import com.maddyhome.idea.vim.api.VimEditor
@@ -15,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.EnumSet
 import javax.swing.text.JTextComponent
+import kotlin.io.path.name
 
 // TODO: Add way to switch providers while running
 private val provider = OpenCodeProvider()
@@ -66,8 +69,9 @@ fun promptHandler(initialInput: String = ""): ExtensionHandler {
         ) {
             val userInput = captureDialogInput(initialInput) ?: return
             val prompt = userInput.expandMacros(editor)
+            val filePath = editor.getPath()
 
-            provider.prompt(prompt)
+            provider.prompt(prompt, filePath)
             injector.messages.showStatusBarMessage(editor, prompt)
         }
     }

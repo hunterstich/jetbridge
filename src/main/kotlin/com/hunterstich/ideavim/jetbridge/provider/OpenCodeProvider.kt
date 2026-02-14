@@ -5,25 +5,33 @@ import com.hunterstich.jetbridge.provider.ProviderMessage
 import com.intellij.util.io.awaitExit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import java.net.ProxySelector
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 
+/**
+ * Implementation of Provider for OpenCode
+ *
+ * To interact with OpenCode, an opencode instance, started with `opencode --port`, must be
+ * running somewhere in the path of the project.
+ */
 class OpenCodeProvider : Provider {
 
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    private var ip: String = "127.0.0.1"
-    private var port: Int = 3000
+    private var address: String = ""
 
     private val baseUri: String
-        get() = "http://$ip:$port"
+        get() = "http://$address"
 
     override val displayName: String = "opencode"
 
@@ -35,26 +43,40 @@ class OpenCodeProvider : Provider {
         .proxy(ProxySelector.getDefault())
         .build()
 
-    override fun prompt(prompt: String) {
+    override fun prompt(prompt: String, filePath: String?) {
         scope.launch {
-            if (!findOpenCodeServerPort()) return@launch
+            try {
+                if (!findOpenCodeServerPort(filePath) || address.isEmpty()) {
+                    _messages.emit(ProviderMessage.Error(
+                        "No opencode instance running in this project's path"
+                    ))
+                    cancel()
+                    return@launch
+                }
 
-            val appendResponse = client.send(
-                getAppendPromptRequest(prompt),
-                HttpResponse.BodyHandlers.ofString()
-            )
-            if (appendResponse.body() != "true") {
-                _messages.emit(
-                    ProviderMessage.Error("Unable to append prompt to opencode server at $baseUri")
+                println("using baseURI: $baseUri")
+                val appendResponse = client.send(
+                    getAppendPromptRequest(prompt),
+                    HttpResponse.BodyHandlers.ofString()
                 )
-                return@launch
-            }
+                if (appendResponse.body() != "true") {
+                    _messages.emit(ProviderMessage.Error(
+                        "Unable to append prompt to opencode server at $baseUri"
+                    ))
+                    cancel()
+                    return@launch
+                }
 
-            client.send(
-                getSubmitPromptRequest(),
-                HttpResponse.BodyHandlers.ofString()
-            )
-            // TODO: Maybe handle errors. Or just send off without care
+                client.send(
+                    getSubmitPromptRequest(),
+                    HttpResponse.BodyHandlers.ofString()
+                )
+            } catch (e: Exception) {
+                _messages.emit(ProviderMessage.Error(
+                    "Unable to prompt an opencode instance: ${e.message}"
+                ))
+                e.printStackTrace()
+            }
         }
     }
 
@@ -75,46 +97,73 @@ class OpenCodeProvider : Provider {
             .build()
     }
 
-    private suspend fun findOpenCodeServerPort(): Boolean {
+    @Serializable
+    data class ServerPath(
+        val home: String,
+        val state: String,
+        val config: String,
+        val worktree: String,
+        val directory: String
+    )
+
+    private val json = Json { ignoreUnknownKeys = true }
+
+    private suspend fun getServerPath(uri: String): Result<ServerPath> {
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create(uri))
+            .GET()
+            .build()
+        val body = client.send(request, HttpResponse.BodyHandlers.ofString()).body()
+            ?: return Result.failure(Throwable("Response was null"))
+
+        return body.runCatching { json.decodeFromString<ServerPath>(body) }
+    }
+
+    private suspend fun findOpenCodeServerPort(filePath: String?): Boolean {
         // Find the process that was started with `opencode --port`
-        val pGrepOutput = mutableListOf<String>()
+        val pids = mutableListOf<String>()
         ProcessBuilder("pgrep", "-f", "opencode.*--port").start().let {
             it.inputStream
                 .bufferedReader()
                 .lines()
-                .forEach { l -> pGrepOutput.add(l) }
+                .forEach { l -> pids.add(l) }
             it.awaitExit()
         }
-        val process: String = pGrepOutput.firstOrNull { it.toIntOrNull() != null } ?: return false
+        if (pids.isEmpty()) return false
 
         // Use the PID to look up the port opencode is running on
-        val lsofOutput = mutableListOf<String>()
-        ProcessBuilder("lsof", "-w", "-iTCP",
-            "-sTCP:LISTEN", "-P", "-n", "-a", "-p", process)
-            .start().let {
-                it.inputStream
-                    .bufferedReader()
-                    .lines()
-                    .forEach { l -> lsofOutput.add(l) }
-                it.awaitExit()
+        val lsofOutputs = mutableListOf<String>()
+        pids.forEach { pid ->
+            ProcessBuilder("lsof", "-w", "-iTCP",
+                "-sTCP:LISTEN", "-P", "-n", "-a", "-p", pid)
+                .start().let {
+                    it.inputStream
+                        .bufferedReader()
+                        .lines()
+                        .forEach { l -> lsofOutputs.add(l) }
+
+                    it.awaitExit()
+                }
+        }
+
+        val servers = lsofOutputs
+            .filter { it.contains("TCP") }.mapNotNull { line ->
+                """TCP (\d+\.\d+\.\d+\.\d+:\d+)""".toRegex().find(line)?.groupValues?.getOrNull(1)
             }
 
-        // Parse the `lsofOutput` variable and extract the port number at the end of
-        // the ip address into a variable called `port`. Here is what the lsofOutput string
-        // looks like:
-        val result = lsofOutput
-            .filter { it.contains("TCP") }
-            .map { line ->
-                """TCP (\d+\.\d+\.\d+\.\d+):(\d+)""".toRegex().find(line)?.groupValues
-            }
-            .firstOrNull()
+        if (servers.isEmpty()) return false // no opencode instance running
+        if (filePath == null) return true // use any previously configured server hoping its there
 
-        // IP address is the first group if we need that
-        val ip = result?.getOrNull(1) ?: return false
-        val port = result.getOrNull(2)?.toIntOrNull() ?: return false
+        // Match the server that is located at the nearest ancestor of filePath
+        val s = servers.map { s -> Pair(s, getServerPath("http://$s/path").getOrNull()) }
+            .filter { it.second != null }
+            .sortedByDescending { it.second?.directory!!.length }
+            .firstOrNull { filePath.contains(it.second!!.directory) }
 
-        this.ip = ip
-        this.port = port
+        // There is no opencode instance running in the file paths ancestry
+        if (s == null) return false
+
+        this.address = s.first
         return true
     }
 }
