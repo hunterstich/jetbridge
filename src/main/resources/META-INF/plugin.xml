@@ -4,9 +4,16 @@
     <vendor>Hunter Stich</vendor>
 
     <depends>com.intellij.modules.platform</depends>
-    <depends>IdeaVIM</depends>
 
-    <extensions defaultExtensionNs="IdeaVIM">
-        <vimExtension implementation="com.hunterstich.ideavim.jetbridge.JetbridgeVimExtension" name="jetbridge"/>
+    <extensions defaultExtensionNs="com.intellij">
+        <postStartupActivity implementation="com.hunterstich.ideavim.jetbridge.Jetbridge"/>
     </extensions>
+
+    <actions>
+        <action
+            id="Jetbridge.PromptAction"
+            class="com.hunterstich.ideavim.jetbridge.JetbridgePromptAction"
+            text="Jetbridge: Prompt"
+            description="Send a prompt to a provider" />
+    </actions>
 </idea-plugin>

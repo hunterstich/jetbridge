@@ -23,10 +23,11 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test:2.3.10")
 
     intellijPlatform {
-//        androidStudio("2025.1.1.13")
         intellijIdeaCommunity("2025.1")
-        plugins("IdeaVIM:2.24.0")
         pluginVerifier()
+
+        // TODO: Remove. Not actually dependent on ideavim but is handy for testing
+        plugins("IdeaVIM:2.24.0")
     }
 }
 

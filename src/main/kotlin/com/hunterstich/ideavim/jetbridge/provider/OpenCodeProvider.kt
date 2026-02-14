@@ -1,14 +1,13 @@
 package com.hunterstich.ideavim.jetbridge.provider
 
+import com.hunterstich.jetbridge.provider.Bus
 import com.hunterstich.jetbridge.provider.Provider
 import com.hunterstich.jetbridge.provider.ProviderMessage
+import com.intellij.openapi.editor.Editor
 import com.intellij.util.io.awaitExit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -35,19 +34,17 @@ class OpenCodeProvider : Provider {
 
     override val displayName: String = "opencode"
 
-    private val _messages = MutableSharedFlow<ProviderMessage>(replay = 0)
-    override val messages: SharedFlow<ProviderMessage> = _messages.asSharedFlow()
-
     private val client = HttpClient
         .newBuilder()
         .proxy(ProxySelector.getDefault())
         .build()
 
-    override fun prompt(prompt: String, filePath: String?) {
+    override fun prompt(prompt: String, editor: Editor) {
         scope.launch {
             try {
+                val filePath = editor.virtualFile?.path
                 if (!findOpenCodeServerPort(filePath) || address.isEmpty()) {
-                    _messages.emit(ProviderMessage.Error(
+                    Bus.emit(ProviderMessage.Error(
                         "No opencode instance running in this project's path"
                     ))
                     cancel()
@@ -60,7 +57,7 @@ class OpenCodeProvider : Provider {
                     HttpResponse.BodyHandlers.ofString()
                 )
                 if (appendResponse.body() != "true") {
-                    _messages.emit(ProviderMessage.Error(
+                    Bus.emit(ProviderMessage.Error(
                         "Unable to append prompt to opencode server at $baseUri"
                     ))
                     cancel()
@@ -72,7 +69,7 @@ class OpenCodeProvider : Provider {
                     HttpResponse.BodyHandlers.ofString()
                 )
             } catch (e: Exception) {
-                _messages.emit(ProviderMessage.Error(
+                Bus.emit(ProviderMessage.Error(
                     "Unable to prompt an opencode instance: ${e.message}"
                 ))
                 e.printStackTrace()

@@ -2,6 +2,8 @@ package com.hunterstich.ideavim.jetbridge.provider
 
 import com.hunterstich.jetbridge.provider.Provider
 import com.hunterstich.jetbridge.provider.ProviderMessage
+import com.intellij.openapi.editor.Editor
+import com.maddyhome.idea.vim.api.VimEditor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -19,26 +21,23 @@ import kotlinx.coroutines.launch
  * `tmux send-keys -t gemini "What is 2+2?"`
  * `tmux send-keys -t gemini C-m`
  */
-class GeminiCliProvider : Provider {
-
-    override val displayName: String = "gemini-cli"
-    private val scope = CoroutineScope(Dispatchers.IO)
-
-    private val _messages = MutableSharedFlow<ProviderMessage>(replay = 0)
-    override val messages: SharedFlow<ProviderMessage> = _messages.asSharedFlow()
-
-    override fun prompt(prompt: String, filePath: String?) {
-        scope.launch {
-            try {
-                // Append to gemini
-                ProcessBuilder("tmux", "send-keys", "-t", "gemini", prompt).start()
-                delay(100)
-                // Submit the prompt
-                ProcessBuilder("tmux", "send-keys", "-t", "gemini", "C-m").start()
-            } catch (e: Exception) {
-                println("Error sending prompt to tmux for gemini-cli: ${e.message}")
-                e.printStackTrace()
-            }
-        }
-    }
-}
+//class GeminiCliProvider : Provider {
+//
+//    override val displayName: String = "gemini-cli"
+//    private val scope = CoroutineScope(Dispatchers.IO)
+//
+//    override fun prompt(prompt: String, editor: Editor) {
+//        scope.launch {
+//            try {
+//                // Append to gemini
+//                ProcessBuilder("tmux", "send-keys", "-t", "gemini", prompt).start()
+//                delay(100)
+//                // Submit the prompt
+//                ProcessBuilder("tmux", "send-keys", "-t", "gemini", "C-m").start()
+//            } catch (e: Exception) {
+//                println("Error sending prompt to tmux for gemini-cli: ${e.message}")
+//                e.printStackTrace()
+//            }
+//        }
+//    }
+//}
