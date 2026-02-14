@@ -15,5 +15,10 @@
             class="com.hunterstich.idea.jetbridge.JetbridgePromptAction"
             text="Jetbridge: Prompt"
             description="Send a prompt to a provider" />
+        <action
+            id="Jetbridge.AskAction"
+            class="com.hunterstich.idea.jetbridge.JetbridgeAskAction"
+            text="Jetbridge: Ask"
+            description="Ask provider about the current selection" />
     </actions>
 </idea-plugin>

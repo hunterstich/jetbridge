@@ -34,5 +34,6 @@ class Jetbridge : ProjectActivity {
 }
 
 private fun Project.showError(message: String) {
+    // TODO: Update to less intrusive UI component
     Messages.showErrorDialog(this, message, "Jetbridge")
 }

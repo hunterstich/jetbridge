@@ -13,7 +13,14 @@ private val provider = OpenCodeProvider()
 class JetbridgePromptAction : AnAction() {
     override fun actionPerformed(event: AnActionEvent) {
         val editor: Editor = event.getData(CommonDataKeys.EDITOR) ?: return
+        val userInput = captureDialogInput("${provider.displayName} prompt:", "") ?: return
+        provider.prompt(userInput.expandMacros(editor), editor)
+    }
+}
 
+class JetbridgeAskAction : AnAction() {
+    override fun actionPerformed(event: AnActionEvent) {
+        val editor: Editor = event.getData(CommonDataKeys.EDITOR) ?: return
         val userInput = captureDialogInput("${provider.displayName} prompt:", "@this ") ?: return
         provider.prompt(userInput.expandMacros(editor), editor)
     }
