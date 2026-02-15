@@ -22,8 +22,19 @@ class JetbridgeAskAction : AnAction() {
     override fun actionPerformed(event: AnActionEvent) {
         val editor: Editor = event.getData(CommonDataKeys.EDITOR) ?: return
         val userInput = captureDialogInput("${provider.displayName} prompt:", "@this ") ?: return
+//        val userInput = captureTextAreaInput("${provider.displayName} prompt:", "@this ") ?: return
         provider.prompt(userInput.expandMacros(editor), editor)
     }
+}
+
+/**
+ * TODO: Work in progress to create multi-line, vim enabled editor for prompts
+ */
+private fun captureTextAreaInput(title: String, prepopulatedText: String): String? {
+    val dialog = JetbridgeDialog()
+    val result = dialog.showAndGet()
+    if (!result) return null
+    return dialog.editorTextField.text
 }
 
 private fun captureDialogInput(title: String, prepopulatedText: String): String? {
@@ -37,7 +48,6 @@ private fun captureDialogInput(title: String, prepopulatedText: String): String?
         "",
         null
     ) {
-
         override fun createTextFieldComponent(): JTextComponent? {
             val tf = super.createTextFieldComponent()
             javax.swing.SwingUtilities.invokeLater {

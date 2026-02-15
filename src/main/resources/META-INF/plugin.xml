@@ -7,6 +7,9 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <postStartupActivity implementation="com.hunterstich.idea.jetbridge.Jetbridge"/>
+        <notificationGroup id="Jetbridge notifications"
+            displayType="BALLOON"
+            key="notification.group.name"/>
     </extensions>
 
     <actions>

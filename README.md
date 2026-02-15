@@ -3,6 +3,14 @@ Intellij/Android Studio extension that lets you interact
 with an AI code assistant like opencode or gemini-cli. Inspired by 
  [opencode.nvim](https://github.com/nickjvandyke/opencode.nvim).
 
+Prompt more quickly with context macros that are expanded in your prompt when sent to the provider:
+
+| Macro | Input                | Output                                     | Desc                                                                                        |
+|-------|----------------------|--------------------------------------------|---------------------------------------------------------------------------------------------|
+| @this | How does @this work? | How does @src/index.ts L10:C0-L15:C4 work? | Expands to the current file path and the cursor or selected text's line numbers and columns |
+
+Only opencode is currently implemented.
+
 ## Installation
 1. Clone the repo
 2. Build the plugin: `./gradlew buildPlugin`

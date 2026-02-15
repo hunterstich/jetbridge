@@ -1,21 +1,56 @@
 package com.hunterstich.idea.jetbridge.provider
 
-import com.hunterstich.idea.jetbridge.provider.Bus
-import com.hunterstich.idea.jetbridge.provider.Provider
-import com.hunterstich.idea.jetbridge.provider.ProviderMessage
 import com.intellij.openapi.editor.Editor
 import com.intellij.util.io.awaitExit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.net.HttpURLConnection
 import java.net.ProxySelector
 import java.net.URI
+import java.net.URL
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+
+@Serializable
+private data class ServerPath(
+    val home: String,
+    val state: String,
+    val config: String,
+    val worktree: String,
+    val directory: String
+)
+
+@Serializable
+private data class Event(
+    /**
+     * Event type. Examples include:
+     *
+     * "server.connected"
+     * "server.instance.disposed
+     * "tui.prompt.append"
+     * "tui.command.execute"
+     * "message.updated"
+     * "message.part.updated"
+     * "question.asked"
+     * "question.rejected"
+     * "session.updated"
+     * "session.status"
+     * "session.diff"
+     * "session.idle"
+     * "server.heartbeat"
+     */
+    val type: String
+)
 
 /**
  * Implementation of Provider for OpenCode
@@ -26,9 +61,11 @@ import java.net.http.HttpResponse
 class OpenCodeProvider : Provider {
 
     private val scope = CoroutineScope(Dispatchers.IO)
+    private val json = Json { ignoreUnknownKeys = true }
+    private var eventJob: Job? = null
 
+    private var isConnected = false
     private var address: String = ""
-
     private val baseUri: String
         get() = "http://$address"
 
@@ -39,19 +76,29 @@ class OpenCodeProvider : Provider {
         .proxy(ProxySelector.getDefault())
         .build()
 
+    private suspend fun ensureConnected(editor: Editor): Boolean {
+        if (!isConnected) {
+            val filePath = editor.virtualFile?.path
+            this.isConnected = findOpenCodeServerPort(filePath) && address.isNotEmpty()
+            if (!isConnected) {
+                Bus.emit(
+                    ProviderMessage.Error("No running opencode instance found in project path")
+                )
+                return false
+            }
+        }
+
+        return true
+    }
+
     override fun prompt(prompt: String, editor: Editor) {
         scope.launch {
             try {
-                val filePath = editor.virtualFile?.path
-                if (!findOpenCodeServerPort(filePath) || address.isEmpty()) {
-                    Bus.emit(ProviderMessage.Error(
-                        "No opencode instance running in this project's path"
-                    ))
+                if (!ensureConnected(editor)) {
                     cancel()
                     return@launch
                 }
 
-                println("using baseURI: $baseUri")
                 val appendResponse = client.send(
                     getAppendPromptRequest(prompt),
                     HttpResponse.BodyHandlers.ofString()
@@ -64,15 +111,18 @@ class OpenCodeProvider : Provider {
                     return@launch
                 }
 
+                // TODO: If opencode is in the question.asked state, it blocks submission.
+                // If unable to submit, add the prompt to the queue instead of discarding it!
                 client.send(
                     getSubmitPromptRequest(),
                     HttpResponse.BodyHandlers.ofString()
                 )
             } catch (e: Exception) {
-                Bus.emit(ProviderMessage.Error(
-                    "Unable to prompt an opencode instance: ${e.message}"
-                ))
                 e.printStackTrace()
+                Bus.emit(ProviderMessage.Error(
+                    "Unable to submit prompt in opencode. Is it busy?"
+                ))
+                cancel()
             }
         }
     }
@@ -94,17 +144,6 @@ class OpenCodeProvider : Provider {
             .build()
     }
 
-    @Serializable
-    data class ServerPath(
-        val home: String,
-        val state: String,
-        val config: String,
-        val worktree: String,
-        val directory: String
-    )
-
-    private val json = Json { ignoreUnknownKeys = true }
-
     private suspend fun getServerPath(uri: String): Result<ServerPath> {
         val request = HttpRequest.newBuilder()
             .uri(URI.create(uri))
@@ -117,6 +156,7 @@ class OpenCodeProvider : Provider {
     }
 
     private suspend fun findOpenCodeServerPort(filePath: String?): Boolean {
+        if (filePath == null) return false
         // Find the process that was started with `opencode --port`
         val pids = mutableListOf<String>()
         ProcessBuilder("pgrep", "-f", "opencode.*--port").start().let {
@@ -149,7 +189,6 @@ class OpenCodeProvider : Provider {
             }
 
         if (servers.isEmpty()) return false // no opencode instance running
-        if (filePath == null) return true // use any previously configured server hoping its there
 
         // Match the server that is located at the nearest ancestor of filePath
         val s = servers.map { s -> Pair(s, getServerPath("http://$s/path").getOrNull()) }
@@ -161,7 +200,65 @@ class OpenCodeProvider : Provider {
         if (s == null) return false
 
         this.address = s.first
+
+        eventJob?.cancel()
+        eventJob = scope.launch {
+            getEventsFlow(address).collect { handleOpenCodeEvent(it) }
+        }
+
         return true
+    }
+
+    private suspend fun handleOpenCodeEvent(event: Event) {
+        when (event.type) {
+            "server.instance.disposed" -> {
+                eventJob?.cancel()
+                isConnected = false
+            }
+            "question.asked" -> {
+                Bus.emit(ProviderMessage.Status("OpenCode asked a question"))
+            }
+        }
+    }
+
+    /**
+     * Connect to the opencode's server SSEs.
+     */
+    private fun getEventsFlow(address: String): Flow<Event> = flow {
+        coroutineScope {
+            val url = "http://$address/event"
+            val conn = (URL(url).openConnection() as HttpURLConnection).also {
+                it.setRequestProperty("Accept", "text/event-stream")
+                it.doInput = true
+            }
+            conn.connect()
+
+            val inputReader = conn.getInputStream().bufferedReader()
+            while (isActive) {
+                try {
+                    val line = inputReader.readLine()
+                    if (line == null || conn.responseCode == -1) {
+                        isConnected = false
+                        break
+                    }
+                    if (line.isEmpty()) continue
+
+                    if (line.startsWith("data: ")) {
+                        val jsonStr = line.removePrefix("data: ")
+                        try {
+                            val event = json.decodeFromString<Event>(jsonStr)
+                            emit(event)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                } catch (e: Exception) {
+                    isConnected = false
+                    e.printStackTrace()
+                    break
+                }
+            }
+        }
     }
 }
 

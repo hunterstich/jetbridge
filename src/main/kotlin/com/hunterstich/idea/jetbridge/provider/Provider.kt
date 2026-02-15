@@ -1,15 +1,13 @@
 package com.hunterstich.idea.jetbridge.provider
 
 import com.intellij.openapi.editor.Editor
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.withContext
 
 interface Provider {
     val displayName: String
-    fun prompt(prompt: String, event: Editor)
+    fun prompt(prompt: String, editor: Editor)
 }
 
 sealed class ProviderMessage {
