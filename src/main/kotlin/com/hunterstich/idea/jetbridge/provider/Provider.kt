@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 
 interface Provider {
     val displayName: String
-    fun prompt(prompt: String, editor: Editor)
+    fun prompt(rawPrompt: String, editor: Editor)
 }
 
 sealed class ProviderMessage {

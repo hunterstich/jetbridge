@@ -13,17 +13,17 @@ private val provider = OpenCodeProvider()
 class JetbridgePromptAction : AnAction() {
     override fun actionPerformed(event: AnActionEvent) {
         val editor: Editor = event.getData(CommonDataKeys.EDITOR) ?: return
-        val userInput = captureDialogInput("${provider.displayName} prompt:", "") ?: return
-        provider.prompt(userInput.expandMacros(editor), editor)
+        val rawInput = captureDialogInput("${provider.displayName} prompt:", "") ?: return
+        provider.prompt(rawInput, editor)
     }
 }
 
 class JetbridgeAskAction : AnAction() {
     override fun actionPerformed(event: AnActionEvent) {
         val editor: Editor = event.getData(CommonDataKeys.EDITOR) ?: return
-        val userInput = captureDialogInput("${provider.displayName} prompt:", "@this ") ?: return
+        val rawInput = captureDialogInput("${provider.displayName} prompt:", "@this ") ?: return
 //        val userInput = captureTextAreaInput("${provider.displayName} prompt:", "@this ") ?: return
-        provider.prompt(userInput.expandMacros(editor), editor)
+        provider.prompt(rawInput, editor)
     }
 }
 
@@ -59,29 +59,4 @@ private fun captureDialogInput(title: String, prepopulatedText: String): String?
 
     dialog.show()
     return if (dialog.isOK) dialog.inputString else null
-}
-
-private fun String.expandMacros(editor: Editor): String {
-    var result = this
-    if (result.contains("@this")) {
-        var value = "@${editor.virtualFile.path}"
-        val caret = editor.caretModel.primaryCaret
-        if (caret.hasSelection()) {
-            val startPos = caret.selectionStartPosition
-            val endPos = caret.selectionEndPosition
-            value += " L${startPos.line + 1}:C${startPos.column}-L${endPos.line + 1}:C${endPos.column}"
-        } else {
-            value += " L${caret.selectionStartPosition.line}"
-        }
-        result = result.replace("@this", value)
-    }
-
-    // TODO: Expand @buffer
-    // if (result.contains("@buffer")) {
-    //     editor.text()
-    //     val bufferText = editor.text().toString()
-    //     result = result.replace("@buffer", bufferText)
-    // }
-
-    return result
 }

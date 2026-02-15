@@ -1,5 +1,9 @@
 package com.hunterstich.idea.jetbridge.provider
 
+import com.hunterstich.idea.jetbridge.cleanAllMacros
+import com.hunterstich.idea.jetbridge.expandInlineMacros
+import com.intellij.openapi.application.Application
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
 import com.intellij.util.io.awaitExit
 import kotlinx.coroutines.CoroutineScope
@@ -11,7 +15,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.net.HttpURLConnection
 import java.net.ProxySelector
@@ -52,6 +58,24 @@ private data class Event(
     val type: String
 )
 
+@Serializable
+private data class Session(
+    val id: String,
+    val title: String
+)
+
+@Serializable
+data class Message(
+    val parts: List<MessageParts>,
+    val agent: String? = null,
+)
+
+@Serializable
+data class MessageParts(
+    val text: String,
+    val type: String,
+)
+
 /**
  * Implementation of Provider for OpenCode
  *
@@ -66,6 +90,7 @@ class OpenCodeProvider : Provider {
 
     private var isConnected = false
     private var address: String = ""
+    private var session: Session? = null
     private val baseUri: String
         get() = "http://$address"
 
@@ -91,7 +116,7 @@ class OpenCodeProvider : Provider {
         return true
     }
 
-    override fun prompt(prompt: String, editor: Editor) {
+    override fun prompt(rawPrompt: String, editor: Editor) {
         scope.launch {
             try {
                 if (!ensureConnected(editor)) {
@@ -99,52 +124,55 @@ class OpenCodeProvider : Provider {
                     return@launch
                 }
 
-                val appendResponse = client.send(
-                    getAppendPromptRequest(prompt),
-                    HttpResponse.BodyHandlers.ofString()
-                )
-                if (appendResponse.body() != "true") {
-                    Bus.emit(ProviderMessage.Error(
-                        "Unable to append prompt to opencode server at $baseUri"
-                    ))
-                    cancel()
-                    return@launch
-                }
+                var prompt = withContext(Dispatchers.Main) { rawPrompt.expandInlineMacros(editor) }
+                val agent = extractAgent(prompt)
+                prompt = prompt.cleanAllMacros()
 
-                // TODO: If opencode is in the question.asked state, it blocks submission.
-                // If unable to submit, add the prompt to the queue instead of discarding it!
-                client.send(
-                    getSubmitPromptRequest(),
-                    HttpResponse.BodyHandlers.ofString()
-                )
+                sendPromptAsync(prompt, agent)
             } catch (e: Exception) {
                 e.printStackTrace()
                 Bus.emit(ProviderMessage.Error(
-                    "Unable to submit prompt in opencode. Is it busy?"
+                    "Unable to prompt opencode. Is it running in this projects path?"
                 ))
                 cancel()
             }
         }
     }
 
-    private fun getAppendPromptRequest(prompt: String): HttpRequest {
-        val jsonBody = "{\"text\": \"$prompt\"}"
-        return HttpRequest.newBuilder()
-            .uri(URI.create("$baseUri/tui/append-prompt"))
-            .setHeader("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-            .build()
+    private fun extractAgent(str: String): String? {
+        return when {
+            str.contains("@a:") -> """@a:(\w+)""".toRegex().find(str)?.groupValues?.getOrNull(1)
+            str.contains("@build") -> "build"
+            str.contains("@plan") -> "plan"
+            else -> null
+        }
     }
 
-    private fun getSubmitPromptRequest(): HttpRequest {
-        return HttpRequest.newBuilder()
-            .uri(URI.create("$baseUri/tui/submit-prompt"))
+    private fun sendPromptAsync(
+        prompt: String,
+        agent: String? = null,
+    ): Result<Boolean> {
+        val sessionId = session?.id
+            ?: return Result.failure(Throwable("No opencode session available"))
+        val message = Message(
+            agent = agent,
+            parts = listOf(MessageParts(text = prompt, type = "text"))
+        )
+        val messageJson = Json.encodeToString(message)
+        println("sending messageJson:$messageJson")
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create("$baseUri/session/$sessionId/prompt_async"))
             .setHeader("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.noBody())
+            .POST(HttpRequest.BodyPublishers.ofString(messageJson))
             .build()
+        return runCatching {
+            val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+            println("got message response: $response, ${response.body()}")
+            return@runCatching response.statusCode() == 200
+        }
     }
 
-    private suspend fun getServerPath(uri: String): Result<ServerPath> {
+    private fun getServerPath(uri: String): Result<ServerPath> {
         val request = HttpRequest.newBuilder()
             .uri(URI.create(uri))
             .GET()
@@ -153,6 +181,17 @@ class OpenCodeProvider : Provider {
             ?: return Result.failure(Throwable("Response was null"))
 
         return body.runCatching { json.decodeFromString<ServerPath>(body) }
+    }
+
+    private fun getSessions(): Result<List<Session>> {
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create("$baseUri/session"))
+            .GET()
+            .build()
+        val body = client.send(request, HttpResponse.BodyHandlers.ofString()).body()
+            ?: return Result.failure(Throwable("No response from sessions endpoint"))
+
+        return body.runCatching { json.decodeFromString<List<Session>>(body) }
     }
 
     private suspend fun findOpenCodeServerPort(filePath: String?): Boolean {
@@ -200,6 +239,11 @@ class OpenCodeProvider : Provider {
         if (s == null) return false
 
         this.address = s.first
+
+        session = getSessions().getOrNull()?.firstOrNull()
+
+        // There isn't an available session
+        if (session == null) return false
 
         eventJob?.cancel()
         eventJob = scope.launch {
