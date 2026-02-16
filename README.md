@@ -42,11 +42,17 @@ of avaiSble actions, use `Shift + Cmd/Ctrl + A` and type "Jetbridge".
 
 ### OpenCode
 * Start opencode in a terminal with `opencode --port`
-* Select a session in the TUI. (Otherwise prompts sent from jetbridge won't show)
+* Select a session in the TUI. (Otherwise prompts sent from jetbridge won't show unitl the 
+initial tui splash screen is gone)
+* jetbridge will try to automatically connect to an opencode instance by finding the instance
+running nearest to your project file's path
+* You can manually connect to an instance by running `Shift + Cmd + A` and searching for 
+"Jetbridge: Connect OpenCode". This lets you input a server address and select a session.
 * Call jetbridge actions from your IDE and the plugin will work with the opencode instance running
 in the path parent nearest your current file
 * jetbridge doesn't implement any UI inside Intellij to reflect questions or followups requested 
-from OpenCode. However, if a question is asked in the terminal, jetbridge will send a little IJ notification to let you know.
+from OpenCode. However, if a question is asked in the terminal, jetbridge will send a little IJ 
+notification to let you know.
 
 ~~### Gemini-CLI~~
 NOT IMPLEMENTED YET
