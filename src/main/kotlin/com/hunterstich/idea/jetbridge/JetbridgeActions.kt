@@ -1,5 +1,7 @@
 package com.hunterstich.idea.jetbridge
 
+import com.hunterstich.idea.jetbridge.provider.opencode.OpenCodeApi
+import com.hunterstich.idea.jetbridge.provider.opencode.OpenCodeComponents
 import com.hunterstich.idea.jetbridge.provider.opencode.OpenCodeProvider
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -9,6 +11,12 @@ import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.Messages
 import com.intellij.ui.dsl.builder.panel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.awt.event.KeyAdapter
+import java.awt.event.KeyEvent
 import javax.swing.DefaultComboBoxModel
 import javax.swing.JComponent
 import javax.swing.text.JTextComponent
@@ -27,50 +35,19 @@ class JetbridgeAskAction : AnAction() {
     override fun actionPerformed(event: AnActionEvent) {
         val editor: Editor = event.getData(CommonDataKeys.EDITOR) ?: return
         val rawInput = captureDialogInput("${provider.displayName} prompt:", "@this ") ?: return
-//        val userInput = captureTextAreaInput("${provider.displayName} prompt:", "@this ") ?: return
         provider.prompt(rawInput, editor)
     }
 }
 
 class JetbridgeConnectOpenCodeAction : AnAction() {
     override fun actionPerformed(event: AnActionEvent) {
-        val result = captureConnectInput() ?: return
-        println("Connect: address=${result.first}, session=${result.second}")
-    }
-}
-
-private fun captureConnectInput(): Pair<String, String>? {
-    val addressOptions = arrayOf("127.0.0.1:4096", "127.0.0.1:3000")
-    val sessionOptions = arrayOf("jetbridge", "testbox")
-
-    val addressCombo = ComboBox(DefaultComboBoxModel(addressOptions))
-    val sessionCombo = ComboBox(DefaultComboBoxModel(sessionOptions)).apply {
-        isEditable = true
-    }
-
-    val dialog = object : DialogWrapper(true) {
-        init {
-            title = "Connect to OpenCode"
-            init()
-        }
-
-        override fun createCenterPanel(): JComponent {
-            return panel {
-                row("Address:") { cell(addressCombo) }
-                row("Session:") { cell(sessionCombo) }
+        CoroutineScope(Dispatchers.IO).launch {
+            val servers = OpenCodeApi.getServers()
+            withContext(Dispatchers.Main) {
+                val result = OpenCodeComponents.showConnectDialog(servers) ?: return@withContext
+                provider.connect(result.server, result.session)
             }
         }
-    }
-
-    dialog.show()
-    return if (dialog.isOK) {
-        val address = addressCombo.selectedItem as? String ?: return null
-        val session = (sessionCombo.selectedItem as? String)
-            ?: (sessionCombo.editor.item as? String)
-            ?: return null
-        Pair(address, session)
-    } else {
-        null
     }
 }
 

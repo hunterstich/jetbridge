@@ -25,10 +25,25 @@ object OpenCodeApi {
         .build()
 
     private val json = Json { ignoreUnknownKeys = true }
-//    private var session: Session? = null
 
+    /**
+     * Send a prompt asynchronously to an OpenCode session.
+     *
+     * Makes an HTTP POST request to the OpenCode server at the specified address
+     * with the prompt message. The prompt is wrapped in a [Message] object that
+     * can optionally specify an agent to handle the prompt.
+     *
+     * @param address The server address in format "host:port" (e.g., "127.0.0.1:3000")
+     * @param sessionId The unique identifier of the OpenCode session to send the prompt to
+     * @param prompt The user's prompt text to send to OpenCode
+     * @param agent Optional agent name to direct the prompt to a specific agent
+     *              (e.g., "build", "plan", or a custom agent identifier)
+     *
+     * @return [Result<Boolean>] indicating success (true, status 200-299) or failure
+     *         (false or exception wrapped in Result)
+     */
     fun sendPromptAsync(
-        address: String, // 127.0.0.1:3000
+        address: String,
         sessionId: String,
         prompt: String,
         agent: String? = null,
@@ -47,7 +62,7 @@ object OpenCodeApi {
         return runCatching {
             val response = client.send(request, HttpResponse.BodyHandlers.ofString())
             println("got message response: $response, ${response.body()}")
-            return@runCatching response.statusCode() in 200 ..299
+            response.statusCode() in 200 ..299
         }
     }
 
@@ -56,10 +71,10 @@ object OpenCodeApi {
             .uri(URI.create("http://$address/session"))
             .GET()
             .build()
-        val body = client.send(request, HttpResponse.BodyHandlers.ofString()).body()
-            ?: return Result.failure(Throwable("No response from sessions endpoint"))
-
-        return body.runCatching { json.decodeFromString<List<Session>>(body) }
+        return runCatching {
+            val body = client.send(request, HttpResponse.BodyHandlers.ofString()).body()
+            json.decodeFromString(body)
+        }
     }
 
     suspend fun getServers(): List<Server> {
@@ -99,43 +114,18 @@ object OpenCodeApi {
             }
 
         return servers
-//
-//        // Match the server that is located at the nearest ancestor of filePath
-//        val s = servers.map { s -> Pair(s, getServers("http://$s/path").getOrNull()) }
-//            .filter { it.second != null }
-//            .sortedByDescending { it.second?.directory!!.length }
-//            .firstOrNull { descendantPath.contains(it.second!!.directory) }
-//
-//        // There is no opencode instance running in the file paths ancestry
-//        if (s == null) return false
-//
-//        this.serverAddress = s.first
-//        this.serverPath = s.second!!.directory
-//        session = getSessions().getOrNull()?.firstOrNull()
-//
-//        // There isn't an available session
-//        if (session == null) return false
-//
-//        Bus.emit(ProviderEvent.Status("Connected to OpenCode session \"${session!!.title}\" @ $serverAddress @ $serverPath"))
-//        eventJob?.cancel()
-//        eventJob = scope.launch {
-//            getEventsFlow(serverAddress).collect { handleOpenCodeEvent(it) }
-//        }
-//
-//        return true
     }
 
-    private fun getServerPath(address: String): Result<ServerPath> {
+    fun getServerPath(address: String): Result<ServerPath> {
         val request = HttpRequest.newBuilder()
             .uri(URI.create("http://$address/path"))
             .GET()
             .build()
-        val body = client.send(request, HttpResponse.BodyHandlers.ofString()).body()
-            ?: return Result.failure(Throwable("Response was null"))
-
-        return body.runCatching { json.decodeFromString<ServerPath>(body) }
+        return runCatching {
+            val body = client.send(request, HttpResponse.BodyHandlers.ofString()).body()
+            json.decodeFromString(body)
+        }
     }
-
 
     /**
      * Connect to the opencode's server SSEs.

@@ -118,7 +118,7 @@ class OpenCodeProvider : Provider {
         return true
     }
 
-    private fun connect(server: OpenCodeApi.Server, session: OpenCodeApi.Session) {
+    fun connect(server: OpenCodeApi.Server, session: OpenCodeApi.Session) {
         this.server = server
         this.session = session
         this.isConnected = true
