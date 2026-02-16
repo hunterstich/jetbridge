@@ -27,15 +27,7 @@ class JetbridgeAskAction : AnAction() {
     }
 }
 
-/**
- * TODO: Work in progress to create multi-line, vim enabled editor for prompts
- */
-private fun captureTextAreaInput(title: String, prepopulatedText: String): String? {
-    val dialog = JetbridgeDialog()
-    val result = dialog.showAndGet()
-    if (!result) return null
-    return dialog.editorTextField.text
-}
+
 
 private fun captureDialogInput(title: String, prepopulatedText: String): String? {
     // Create a custom dialog to control the text field behavior. The standard showInputDialog

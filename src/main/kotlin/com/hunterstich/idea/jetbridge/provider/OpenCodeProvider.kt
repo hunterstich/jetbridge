@@ -243,11 +243,10 @@ class OpenCodeProvider : Provider {
         this.serverPath = s.second!!.directory
         session = getSessions().getOrNull()?.firstOrNull()
 
-        Bus.emit(ProviderEvent.Status("Connected to OpenCode session \"${session}\" @ $serverAddress @ $serverPath"))
-
         // There isn't an available session
         if (session == null) return false
 
+        Bus.emit(ProviderEvent.Status("Connected to OpenCode session \"${session!!.title}\" @ $serverAddress @ $serverPath"))
         eventJob?.cancel()
         eventJob = scope.launch {
             getEventsFlow(serverAddress).collect { handleOpenCodeEvent(it) }
