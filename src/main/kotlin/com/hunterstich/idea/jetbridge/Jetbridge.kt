@@ -25,14 +25,12 @@ class Jetbridge : ProjectActivity {
                 Bus.messages.collect { msg ->
                     when (msg) {
                         is ProviderMessage.Status -> {
-                            println("status: ${msg.message}")
                             withContext(Dispatchers.Main) {
                                 scope.showNotification(project, msg.message)
                             }
                         }
                         is ProviderMessage.Error -> {
                             withContext(Dispatchers.Main) {
-                                println("showing error message")
                                 scope.showNotification(project, msg.error, NotificationType.ERROR)
                             }
                         }
