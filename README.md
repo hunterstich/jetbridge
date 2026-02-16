@@ -1,16 +1,24 @@
 # jetbridge ✈️ 🌉
 Intellij/Android Studio plugin that adds actions for interacting
-with an AI code assistant like opencode or gemini-cli from the IDE editor. Inspired by 
+with an AI agent tool like opencode or gemini-cli from the IDE editor. Inspired by 
  [opencode.nvim](https://github.com/nickjvandyke/opencode.nvim).
 
 ### Why?
-* _Stay in the flow_: Pull up a prompt dialog with an IntelliJ action or vim keybinding
-* _Prompt more precisely_: '@' macros expand to context in your final prompt, invoke specific
-agents, and more
+* _Stay on the keyboard: Pull up a prompt dialog with an IntelliJ action or vim keybinding_
+* _Prompt more precisely: '@' macros expand to context in your final prompt, invoke specific
+agents, etc._
 
-| Example                                                  | Result                                                                                                           |
-|----------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| @plan How could I re-write @this in a more idiomatic way | (Run with OpenCode's "Plan" agent) <br>How could I re-write @myproject/src/main/kotlin/com/example/Main.kt L15:C0-L20:C2 in a more idomatic way 
+| Example                                                        | Result                                                                                                                                               |
+|----------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ```@plan How could I re-write @this in a more idiomatic way``` | (Run with OpenCode's "Plan" agent)<br>```How could I re-write @myproject/src/main/kotlin/com/example/Main.kt L15:C0-L20:C2 in a more idomatic way``` |
+
+## Actions
+
+| Action                          | Desc                                                                                              |
+|---------------------------------|---------------------------------------------------------------------------------------------------|
+| Jetbridge.PromptAction          | Open an empty input dialog in the IDE. "Ok" sends the prompt to the provider after parsing macros |
+| Jetbridge.AskAction             | Open an input dialog with "@this " already added to the prompt                                    |
+| Jetbridge.ConnectOpenCodeAction | Open a dialog that lets you manually select or input an opencode server's address and session     |
 
 ## Macros
 
@@ -22,7 +30,6 @@ agents, and more
 | @build      | @build Refactor @this                               | Refactor @src/Main.kt L0?                                  | @build will run the command using the "build" agent in OpenCode. This is the default option if no @agent is specified |
 | @a:<agent>  | @a:<agent> Add tests for @this                      | Add tests for @src/Main.kt                                 | @a:<agent> runs the command using the custom agent you specify in place of <agent>                                    |
 
-Only opencode is currently implemented.
 
 ## Installation
 1. Clone the repo
