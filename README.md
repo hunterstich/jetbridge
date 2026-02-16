@@ -3,18 +3,14 @@ Intellij/Android Studio plugin that adds actions for interacting
 with an AI code assistant like opencode or gemini-cli from the IDE editor. Inspired by 
  [opencode.nvim](https://github.com/nickjvandyke/opencode.nvim).
 
-### **Why?**
-
-**Stay in the flow**: Pull up a prompt dialog with an IntelliJ action or vim keybinding
-
-**Prompt more precisely**: '@' macros expand to context in your final prompt, invoke specific
+### Why?
+* _Stay in the flow_: Pull up a prompt dialog with an IntelliJ action or vim keybinding
+* _Prompt more precisely_: '@' macros expand to context in your final prompt, invoke specific
 agents, and more
 
-### Example
-
-|                                                        |   |                                                                                                                                               |
-|--------------------------------------------------------|---|-----------------------------------------------------------------------------------------------------------------------------------------------|
-| @plan How could re-write @this in a more idiomatic way | ͢ | (Run in OpenCode's "Plan" mode) <br>How could we re-write @myproject/src/main/kotlin/com/example/Main.kt L15:C0-L20:C2 in a more idomatic way | 
+| Example                                                  | Result                                                                                                           |
+|----------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| @plan How could I re-write @this in a more idiomatic way | (Run with OpenCode's "Plan" agent) <br>How could I re-write @myproject/src/main/kotlin/com/example/Main.kt L15:C0-L20:C2 in a more idomatic way 
 
 ## Macros
 
