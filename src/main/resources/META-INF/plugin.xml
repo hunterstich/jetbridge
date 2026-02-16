@@ -23,5 +23,10 @@
             class="com.hunterstich.idea.jetbridge.JetbridgeAskAction"
             text="Jetbridge: Ask"
             description="Ask provider about the current selection" />
+        <action
+            id="Jetbridge.ConnectOpenCodeAction"
+            class="com.hunterstich.idea.jetbridge.JetbridgeConnectOpenCodeAction"
+            text="Jetbridge: Connect OpenCode"
+            description="Connect to an OpenCode instance" />
     </actions>
 </idea-plugin>
