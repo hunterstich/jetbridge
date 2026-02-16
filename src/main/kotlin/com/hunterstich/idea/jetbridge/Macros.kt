@@ -3,12 +3,13 @@ package com.hunterstich.idea.jetbridge
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
 
-fun String.expandInlineMacros(editor: Editor): String {
+fun String.expandInlineMacros(editor: Editor, providerPath: String): String {
     var result = this
     if (result.contains("@this")) {
         var value = ""
         ApplicationManager.getApplication().runReadAction {
-            value = "@${editor.virtualFile.path}"
+            val filePath = getRelativePath(editor.virtualFile.path, providerPath)
+            value = "@$filePath"
             val caret = editor.caretModel.primaryCaret
             if (caret.hasSelection()) {
                 val startPos = caret.selectionStartPosition
@@ -22,11 +23,16 @@ fun String.expandInlineMacros(editor: Editor): String {
         result = result.replace("@this", value)
     }
 
+    if (result.contains("@file")) {
+        ApplicationManager.getApplication().runReadAction {
+            val filePath = getRelativePath(editor.virtualFile.path, providerPath)
+            result = result.replace("@file", "@$filePath")
+        }
+    }
+
     // TODO: Expand @buffer
     // if (result.contains("@buffer")) {
-    //     editor.text()
-    //     val bufferText = editor.text().toString()
-    //     result = result.replace("@buffer", bufferText)
+
     // }
 
     return result
@@ -35,4 +41,15 @@ fun String.expandInlineMacros(editor: Editor): String {
 fun String.cleanAllMacros(): String {
     val result = this.replace("""@\w+""".toRegex(), "").trim()
     return result
+}
+
+private fun getRelativePath(fullPath: String, providerPath: String): String {
+    var relativePath = fullPath
+    if (fullPath.startsWith(providerPath)) {
+        relativePath = fullPath.removePrefix(providerPath)
+        if (relativePath.startsWith("/") || relativePath.startsWith("\\")) {
+            relativePath = relativePath.removePrefix("/").removePrefix("\\")
+        }
+    }
+    return relativePath
 }

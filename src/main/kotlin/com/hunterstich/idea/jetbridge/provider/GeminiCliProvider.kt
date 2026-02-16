@@ -1,17 +1,5 @@
 package com.hunterstich.idea.jetbridge.provider
 
-import com.hunterstich.idea.jetbridge.provider.Provider
-import com.hunterstich.idea.jetbridge.provider.ProviderMessage
-import com.intellij.openapi.editor.Editor
-import com.maddyhome.idea.vim.api.VimEditor
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.launch
-
 
 /**
  * For gemini-cli, the provider must be started in a tmux session with:

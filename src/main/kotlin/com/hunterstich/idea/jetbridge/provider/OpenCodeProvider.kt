@@ -2,8 +2,6 @@ package com.hunterstich.idea.jetbridge.provider
 
 import com.hunterstich.idea.jetbridge.cleanAllMacros
 import com.hunterstich.idea.jetbridge.expandInlineMacros
-import com.intellij.openapi.application.Application
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
 import com.intellij.util.io.awaitExit
 import kotlinx.coroutines.CoroutineScope
@@ -89,10 +87,11 @@ class OpenCodeProvider : Provider {
     private var eventJob: Job? = null
 
     private var isConnected = false
-    private var address: String = ""
+    private var serverAddress: String = ""
+    private var serverPath: String = ""
     private var session: Session? = null
     private val baseUri: String
-        get() = "http://$address"
+        get() = "http://$serverAddress"
 
     override val displayName: String = "opencode"
 
@@ -104,10 +103,10 @@ class OpenCodeProvider : Provider {
     private suspend fun ensureConnected(editor: Editor): Boolean {
         if (!isConnected) {
             val filePath = editor.virtualFile?.path
-            this.isConnected = findOpenCodeServerPort(filePath) && address.isNotEmpty()
+            this.isConnected = findOpenCodeServerPort(filePath) && serverAddress.isNotEmpty()
             if (!isConnected) {
                 Bus.emit(
-                    ProviderMessage.Error("No running opencode instance found in project path")
+                    ProviderEvent.Error("No running opencode instance found in project path")
                 )
                 return false
             }
@@ -124,14 +123,16 @@ class OpenCodeProvider : Provider {
                     return@launch
                 }
 
-                var prompt = withContext(Dispatchers.Main) { rawPrompt.expandInlineMacros(editor) }
+                var prompt = withContext(Dispatchers.Main) {
+                    rawPrompt.expandInlineMacros(editor, serverPath)
+                }
                 val agent = extractAgent(prompt)
                 prompt = prompt.cleanAllMacros()
 
                 sendPromptAsync(prompt, agent)
             } catch (e: Exception) {
                 e.printStackTrace()
-                Bus.emit(ProviderMessage.Error(
+                Bus.emit(ProviderEvent.Error(
                     "Unable to prompt opencode. Is it running in this projects path?"
                 ))
                 cancel()
@@ -168,7 +169,7 @@ class OpenCodeProvider : Provider {
         return runCatching {
             val response = client.send(request, HttpResponse.BodyHandlers.ofString())
             println("got message response: $response, ${response.body()}")
-            return@runCatching response.statusCode() == 200
+            return@runCatching response.statusCode() in 200 ..299
         }
     }
 
@@ -238,16 +239,18 @@ class OpenCodeProvider : Provider {
         // There is no opencode instance running in the file paths ancestry
         if (s == null) return false
 
-        this.address = s.first
-
+        this.serverAddress = s.first
+        this.serverPath = s.second!!.directory
         session = getSessions().getOrNull()?.firstOrNull()
+
+        Bus.emit(ProviderEvent.Status("Connected to OpenCode session \"${session}\" @ $serverAddress @ $serverPath"))
 
         // There isn't an available session
         if (session == null) return false
 
         eventJob?.cancel()
         eventJob = scope.launch {
-            getEventsFlow(address).collect { handleOpenCodeEvent(it) }
+            getEventsFlow(serverAddress).collect { handleOpenCodeEvent(it) }
         }
 
         return true
@@ -260,7 +263,7 @@ class OpenCodeProvider : Provider {
                 isConnected = false
             }
             "question.asked" -> {
-                Bus.emit(ProviderMessage.Status("OpenCode asked a question"))
+                Bus.emit(ProviderEvent.Message("OpenCode asked a question"))
             }
         }
     }

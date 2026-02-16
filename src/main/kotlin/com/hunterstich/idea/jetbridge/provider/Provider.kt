@@ -10,18 +10,19 @@ interface Provider {
     fun prompt(rawPrompt: String, editor: Editor)
 }
 
-sealed class ProviderMessage {
-    data class Status(val message: String) : ProviderMessage()
-    data class Error(val error: String) : ProviderMessage()
+sealed class ProviderEvent {
+    data class Status(val message: String) : ProviderEvent()
+    data class Message(val message: String): ProviderEvent()
+    data class Error(val error: String) : ProviderEvent()
 }
 
 object Bus {
 
-    private val _messages = MutableSharedFlow<ProviderMessage>(replay = 0)
+    private val _messages = MutableSharedFlow<ProviderEvent>(replay = 0)
 
-    val messages: SharedFlow<ProviderMessage> = _messages.asSharedFlow()
+    val messages: SharedFlow<ProviderEvent> = _messages.asSharedFlow()
 
-    suspend fun emit(msg: ProviderMessage) {
+    suspend fun emit(msg: ProviderEvent) {
         _messages.emit(msg)
     }
 }

@@ -12,12 +12,13 @@ with an AI code assistant like opencode or gemini-cli from the IDE editor. Inspi
 
 ## Macros
 
-| Macro      | Input                              | Output                                    | Desc                                                                                                                  |
-|------------|------------------------------------|-------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
-| @this      | How does @this work?               | How does @src/Main.kt L10:C0-L15:C4 work? | Expands to the current file path and the cursor or selected text's line numbers and columns                           |
-| @plan      | @plan How should we refactor @this | How should we refactor @src/Main.kt L0?   | @plan will run the command using the "plan" agent in OpenCode                                                         
-| @build     | @build Refactor @this              | Refactor @src/Main.kt L0?                 | @build will run the command using the "build" agent in OpenCode. This is the default option if no @agent is specified 
-| @a:<agent> | @a:<agent> Add tests for @this     | Add tests for @src/Main.kt                | @a:<agent> runs the command using the custom agent you specify in place of <agent>                                    
+| Macro       | Input                                               | Output                                                     | Desc                                                                                                                  |
+|-------------|-----------------------------------------------------|------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| @this       | How does @this work?                                | How does @src/Main.kt L10:C0-L15:C4 work?                  | Expands to the current file path and the cursor or selection's line and column info                                   |
+| @file       | Move data classes from @file into their own package | Move data classes from @src/Main.kt into their own package | Expands to just the file path (no line/column info)                                                                   |
+| @plan       | @plan How should we refactor @this                  | How should we refactor @src/Main.kt L0?                    | @plan will run the command using the "plan" agent in OpenCode                                                         |
+| @build      | @build Refactor @this                               | Refactor @src/Main.kt L0?                                  | @build will run the command using the "build" agent in OpenCode. This is the default option if no @agent is specified |
+| @a:<agent>  | @a:<agent> Add tests for @this                      | Add tests for @src/Main.kt                                 | @a:<agent> runs the command using the custom agent you specify in place of <agent>                                    |
 
 Only opencode is currently implemented.
 
@@ -41,6 +42,7 @@ of avaiSble actions, use `Shift + Cmd/Ctrl + A` and type "Jetbridge".
 
 ### OpenCode
 * Start opencode in a terminal with `opencode --port`
+* Select a session in the TUI. (Otherwise prompts sent from jetbridge won't show)
 * Call jetbridge actions from your IDE and the plugin will work with the opencode instance running
 in the path parent nearest your current file
 * jetbridge doesn't implement any UI inside Intellij to reflect questions or followups requested 
