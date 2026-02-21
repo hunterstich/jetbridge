@@ -6,27 +6,12 @@ import com.hunterstich.idea.jetbridge.provider.Bus
 import com.hunterstich.idea.jetbridge.provider.Provider
 import com.hunterstich.idea.jetbridge.provider.ProviderEvent
 import com.intellij.openapi.editor.Editor
-import com.intellij.util.io.awaitExit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import java.net.HttpURLConnection
-import java.net.ProxySelector
-import java.net.URI
-import java.net.URL
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 
 /**
  * Implementation of Provider for OpenCode
@@ -88,6 +73,12 @@ class OpenCodeProvider : Provider {
         }
     }
 
+    /**
+     * Extract an opencode agent from the prompt string
+     *
+     * @return a string accepted by opencode's prompt_async endpoint or null if no agent was
+     *   specified
+     */
     private fun extractAgent(str: String): String? {
         return when {
             str.contains("@a:") -> """@a:(\w+)""".toRegex().find(str)?.groupValues?.getOrNull(1)

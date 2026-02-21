@@ -52,6 +52,7 @@ object OpenCodeApi {
             agent = agent,
             parts = listOf(MessageParts(text = prompt, type = "text"))
         )
+        println("sendPromptAsync. prompt:$prompt")
         val messageJson = Json.encodeToString(message)
         println("sending messageJson:$messageJson")
         val request = HttpRequest.newBuilder()

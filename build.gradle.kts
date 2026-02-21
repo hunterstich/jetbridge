@@ -21,6 +21,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test:2.3.10")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.1.0")
 
     intellijPlatform {
         intellijIdeaCommunity("2025.1")

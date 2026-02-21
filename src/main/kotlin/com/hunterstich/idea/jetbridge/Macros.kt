@@ -3,6 +3,20 @@ package com.hunterstich.idea.jetbridge
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
 
+private val allMacros = listOf(
+    "@this",
+    "@file",
+    "@buffer",
+    "@dir",
+    "@plan",
+    "@build",
+)
+
+private val allMacroRegex = listOf(
+    // Match for any agent specifier
+    """@a:\w+""".toRegex()
+)
+
 fun String.expandInlineMacros(editor: Editor, providerPath: String): String {
     var result = this
     if (result.contains("@this")) {
@@ -35,15 +49,24 @@ fun String.expandInlineMacros(editor: Editor, providerPath: String): String {
 
     // }
 
+    // TODO: Expand @dir
+
     return result
 }
 
 fun String.cleanAllMacros(): String {
-    val result = this.replace("""@\w+""".toRegex(), "").trim()
-    return result
+    var result = this
+    for (macro in allMacros) {
+        result = result.replace(macro, "")
+    }
+    for (regex in allMacroRegex) {
+        result = result.replace(regex, "")
+    }
+    return result.trim()
 }
 
 private fun getRelativePath(fullPath: String, providerPath: String): String {
+    println("trimming path. full: $fullPath, providerPath: $providerPath")
     var relativePath = fullPath
     if (fullPath.startsWith(providerPath)) {
         relativePath = fullPath.removePrefix(providerPath)
