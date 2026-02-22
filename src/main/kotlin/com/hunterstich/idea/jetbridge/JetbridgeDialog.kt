@@ -1,71 +1,130 @@
 package com.hunterstich.idea.jetbridge
 
+import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
+import com.intellij.openapi.editor.EditorFactory
+import com.intellij.openapi.editor.colors.EditorColorsManager
+import com.intellij.openapi.editor.event.DocumentEvent
+import com.intellij.openapi.editor.event.DocumentListener
+import com.intellij.openapi.editor.markup.HighlighterLayer
+import com.intellij.openapi.editor.markup.HighlighterTargetArea
+import com.intellij.openapi.editor.markup.TextAttributes
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.ui.EditorTextField
-import com.maddyhome.idea.vim.api.injector
-import com.maddyhome.idea.vim.command.MappingMode
-import com.maddyhome.idea.vim.key.MappingOwner.Plugin.Companion.get
+import java.awt.Dimension
+import java.awt.Font
+import java.awt.event.KeyAdapter
+import java.awt.event.KeyEvent
 import javax.swing.JComponent
 
-
 /**
- * TODO: Work in progress
+ * A multi-line prompt dialog with macro highlighting.
  *
- * A multi-line, vim enabled text area for writing prompts
+ * - Enter submits the dialog (OK).
+ * - Shift+Enter inserts a newline.
+ * - Macros like @this, @file, etc. are highlighted as the user types.
+ * - IdeaVIM keybindings work automatically if the plugin is installed and
+ *   the user has enabled `set ideavimsupport+=dialog` in their .ideavimrc.
  */
-class JetbridgeDialog : DialogWrapper(true) {
+class JetbridgeDialog(
+    project: Project?,
+    dialogTitle: String,
+    private val prepopulatedText: String,
+) : DialogWrapper(project) {
 
-    var enterRemapped = false
-    val editorTextField: EditorTextField = EditorTextField()
+    private val editorTextField: EditorTextField
+
+    val inputText: String
+        get() = editorTextField.text
 
     init {
-        setSize(200, 200)
-        title = "Jetbridge"
-//        val vimPlugin = PluginManagerCore.getPlugin(PluginId.getId("IdeaVIM"))
-//        val vimEnabled = vimPlugin != null && vimPlugin.isEnabled
-//        if (vimEnabled) {
-//            remapEnter()
-//        }
+        title = dialogTitle
+        val document = EditorFactory.getInstance().createDocument(prepopulatedText)
+        editorTextField = EditorTextField(document, project, null, false, true).apply {
+            preferredSize = Dimension(400, 200)
+            addSettingsProvider { editor ->
+                editor.settings.apply {
+                    isLineNumbersShown = false
+                    isWhitespacesShown = false
+                    isFoldingOutlineShown = false
+                    additionalLinesCount = 0
+                }
+                editor.contentComponent.addKeyListener(EnterKeyListener())
+                highlightMacros(editor)
+            }
+        }
+
+        document.addDocumentListener(object : DocumentListener {
+            override fun documentChanged(event: DocumentEvent) {
+                val editor = editorTextField.editor ?: return
+                highlightMacros(editor)
+            }
+        })
+
         init()
     }
 
-    private fun remapEnter() {
-        if (enterRemapped) return
-//        // i had 2 <cr> here before and i can't remember why
-//        val keys: List<KeyStroke> =
-//            injector.parser.parseKeys(":action SelectHarpoonItem<cr>")
-//        val keyGroup: VimKeyGroup =
-//            injector.keyGroup
-//        keyGroup.putKeyMapping(
-//            MappingMode.NVO,
-//            injector.parser.parseKeys("<cr>"),
-//            get("Jetbridge"), keys, false
-//        )
+    override fun createCenterPanel(): JComponent = editorTextField
 
-        // Call doOkAction when enter is pressed
-        // TODO: Causing crash
-        injector.keyGroup.putKeyMapping(
-            MappingMode.NVO,
-            injector.parser.parseKeys("<cr>"),
-            get("Jetbridge"),
-            injector.parser.parseKeys("<C><cr>"),
-            false
-        )
+    override fun getPreferredFocusedComponent(): JComponent = editorTextField
 
+    /**
+     * Scans the editor text for known macros and applies highlight markers.
+     */
+    private fun highlightMacros(editor: com.intellij.openapi.editor.Editor) {
+        val markupModel = editor.markupModel
+        markupModel.removeAllHighlighters()
 
-        enterRemapped = true
-    }
+        val text = editor.document.text
+        val attributes = macroTextAttributes()
 
-    override fun getPreferredFocusedComponent(): JComponent {
-        return editorTextField
-    }
-
-    override fun createCenterPanel(): JComponent {
-        editorTextField.setOneLineMode(false)
-        editorTextField.addSettingsProvider { editor ->
-            editor.isInsertMode = true
+        for (macro in allMacros) {
+            var startIndex = text.indexOf(macro)
+            while (startIndex >= 0) {
+                markupModel.addRangeHighlighter(
+                    startIndex,
+                    startIndex + macro.length,
+                    HighlighterLayer.SELECTION - 1,
+                    attributes,
+                    HighlighterTargetArea.EXACT_RANGE,
+                )
+                startIndex = text.indexOf(macro, startIndex + macro.length)
+            }
         }
 
-        return editorTextField
+        for (regex in allMacroRegex) {
+            for (match in regex.findAll(text)) {
+                markupModel.addRangeHighlighter(
+                    match.range.first,
+                    match.range.last + 1,
+                    HighlighterLayer.SELECTION - 1,
+                    attributes,
+                    HighlighterTargetArea.EXACT_RANGE,
+                )
+            }
+        }
+    }
+
+    private fun macroTextAttributes(): TextAttributes {
+        val scheme = EditorColorsManager.getInstance().globalScheme
+        val textColor = scheme.getAttributes(DefaultLanguageHighlighterColors.DOC_COMMENT_TAG)
+        return TextAttributes().apply {
+            if (textColor != null) {
+                copyFrom(textColor)
+            }
+            fontType = Font.BOLD
+        }
+    }
+
+    /**
+     * Intercepts Enter to submit the dialog. Shift+Enter inserts a newline.
+     */
+    private inner class EnterKeyListener : KeyAdapter() {
+        override fun keyPressed(e: KeyEvent) {
+            if (e.keyCode == KeyEvent.VK_ENTER && !e.isShiftDown) {
+                e.consume()
+                doOKAction()
+            }
+        }
     }
 }

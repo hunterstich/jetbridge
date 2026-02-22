@@ -3,7 +3,7 @@ package com.hunterstich.idea.jetbridge
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
 
-private val allMacros = listOf(
+internal val allMacros = listOf(
     "@this",
     "@file",
     "@buffer",
@@ -12,7 +12,7 @@ private val allMacros = listOf(
     "@build",
 )
 
-private val allMacroRegex = listOf(
+internal val allMacroRegex = listOf(
     // Match for any agent specifier
     """@a:\w+""".toRegex()
 )
