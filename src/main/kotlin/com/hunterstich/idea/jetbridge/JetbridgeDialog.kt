@@ -1,6 +1,9 @@
 package com.hunterstich.idea.jetbridge
 
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.CustomShortcutSet
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
+import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.editor.event.DocumentEvent
@@ -8,13 +11,12 @@ import com.intellij.openapi.editor.event.DocumentListener
 import com.intellij.openapi.editor.markup.HighlighterLayer
 import com.intellij.openapi.editor.markup.HighlighterTargetArea
 import com.intellij.openapi.editor.markup.TextAttributes
+import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.ui.EditorTextField
 import java.awt.Dimension
 import java.awt.Font
-import java.awt.event.KeyAdapter
-import java.awt.event.KeyEvent
 import javax.swing.JComponent
 
 /**
@@ -40,8 +42,15 @@ class JetbridgeDialog(
     init {
         title = dialogTitle
         val document = EditorFactory.getInstance().createDocument(prepopulatedText)
-        editorTextField = EditorTextField(document, project, null, false, true).apply {
+        editorTextField = EditorTextField(
+            /* document = */ document,
+            /* project = */ project,
+            /* fileType = */ null,
+            /* isViewer = */ false,
+            /* oneLineMode = */ false
+        ).apply {
             preferredSize = Dimension(400, 200)
+            setFontInheritedFromLAF(false)
             addSettingsProvider { editor ->
                 editor.settings.apply {
                     isLineNumbersShown = false
@@ -49,7 +58,23 @@ class JetbridgeDialog(
                     isFoldingOutlineShown = false
                     additionalLinesCount = 0
                 }
-                editor.contentComponent.addKeyListener(EnterKeyListener())
+                editor.backgroundColor = EditorColorsManager.getInstance()
+                    .globalScheme
+                    .defaultBackground
+                // Register Enter as an AnAction on the editor component so it runs
+                // at the IntelliJ action layer (before the editor's default EnterAction).
+                // Shift+Enter is not matched by this shortcut, so it falls through to
+                // the default handler which inserts a newline.
+                val enterAction = object : DumbAwareAction() {
+                    override fun actionPerformed(e: AnActionEvent) {
+                        doOKAction()
+                    }
+                }
+                enterAction.registerCustomShortcutSet(
+                    CustomShortcutSet.fromString("ENTER"),
+                    editor.contentComponent,
+                    disposable,
+                )
                 highlightMacros(editor)
             }
         }
@@ -71,12 +96,12 @@ class JetbridgeDialog(
     /**
      * Scans the editor text for known macros and applies highlight markers.
      */
-    private fun highlightMacros(editor: com.intellij.openapi.editor.Editor) {
+    private fun highlightMacros(editor: Editor) {
         val markupModel = editor.markupModel
         markupModel.removeAllHighlighters()
 
         val text = editor.document.text
-        val attributes = macroTextAttributes()
+        val attributes = macroTextAttributes(editor)
 
         for (macro in allMacros) {
             var startIndex = text.indexOf(macro)
@@ -105,26 +130,13 @@ class JetbridgeDialog(
         }
     }
 
-    private fun macroTextAttributes(): TextAttributes {
-        val scheme = EditorColorsManager.getInstance().globalScheme
-        val textColor = scheme.getAttributes(DefaultLanguageHighlighterColors.DOC_COMMENT_TAG)
+    private fun macroTextAttributes(editor: Editor): TextAttributes {
+        val textColor = editor.colorsScheme.getAttributes(DefaultLanguageHighlighterColors.LABEL)
         return TextAttributes().apply {
             if (textColor != null) {
                 copyFrom(textColor)
             }
             fontType = Font.BOLD
-        }
-    }
-
-    /**
-     * Intercepts Enter to submit the dialog. Shift+Enter inserts a newline.
-     */
-    private inner class EnterKeyListener : KeyAdapter() {
-        override fun keyPressed(e: KeyEvent) {
-            if (e.keyCode == KeyEvent.VK_ENTER && !e.isShiftDown) {
-                e.consume()
-                doOKAction()
-            }
         }
     }
 }

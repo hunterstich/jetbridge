@@ -4,6 +4,7 @@
     <vendor>Hunter Stich</vendor>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends optional="true" config-file="jetbridge-ideavim.xml">IdeaVIM</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <postStartupActivity implementation="com.hunterstich.idea.jetbridge.Jetbridge"/>
