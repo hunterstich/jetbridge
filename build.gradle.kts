@@ -24,7 +24,8 @@ dependencies {
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.1.0")
 
     intellijPlatform {
-        intellijIdeaCommunity("2025.1")
+        androidStudio("2025.3.1.5")
+//        intellijIdeaCommunity("2025.1")
         pluginVerifier()
 
         // TODO: Remove. Not actually dependent on ideavim but is handy for testing

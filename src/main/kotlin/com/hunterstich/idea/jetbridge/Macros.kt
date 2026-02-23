@@ -22,7 +22,7 @@ fun String.expandInlineMacros(editor: Editor, providerPath: String): String {
     if (result.contains("@this")) {
         var value = ""
         ApplicationManager.getApplication().runReadAction {
-            val filePath = getRelativePath(editor.virtualFile.path, providerPath)
+            val filePath = getRelativePath(editor.virtualFile?.path, providerPath)
             value = "@$filePath"
             val caret = editor.caretModel.primaryCaret
             if (caret.hasSelection()) {
@@ -39,7 +39,7 @@ fun String.expandInlineMacros(editor: Editor, providerPath: String): String {
 
     if (result.contains("@file")) {
         ApplicationManager.getApplication().runReadAction {
-            val filePath = getRelativePath(editor.virtualFile.path, providerPath)
+            val filePath = getRelativePath(editor.virtualFile?.path, providerPath)
             result = result.replace("@file", "@$filePath")
         }
     }
@@ -65,7 +65,8 @@ fun String.cleanAllMacros(): String {
     return result.trim()
 }
 
-private fun getRelativePath(fullPath: String, providerPath: String): String {
+private fun getRelativePath(fullPath: String?, providerPath: String): String {
+    if (fullPath == null) return ""
     println("trimming path. full: $fullPath, providerPath: $providerPath")
     var relativePath = fullPath
     if (fullPath.startsWith(providerPath)) {
