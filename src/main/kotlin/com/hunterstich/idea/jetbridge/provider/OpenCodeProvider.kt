@@ -1,10 +1,8 @@
-package com.hunterstich.idea.jetbridge.provider.opencode
+package com.hunterstich.idea.jetbridge.provider
 
 import com.hunterstich.idea.jetbridge.cleanAllMacros
 import com.hunterstich.idea.jetbridge.expandInlineMacros
-import com.hunterstich.idea.jetbridge.provider.Bus
-import com.hunterstich.idea.jetbridge.provider.Provider
-import com.hunterstich.idea.jetbridge.provider.ProviderEvent
+import com.hunterstich.idea.jetbridge.provider.opencode.OpenCodeApi
 import com.intellij.openapi.editor.Editor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -133,5 +131,3 @@ class OpenCodeProvider : Provider {
         }
     }
 }
-
-

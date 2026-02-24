@@ -23,6 +23,7 @@ class GeminiCliProvider : Provider {
     override fun prompt(rawPrompt: String, editor: Editor) {
         scope.launch {
             try {
+                // TODO: Ensure there is a tmux session with the specific name
                 // Append to gemini
                 ProcessBuilder("tmux", "send-keys", "-t", "gemini", rawPrompt).start()
                 delay(100)

@@ -1,8 +1,8 @@
 package com.hunterstich.idea.jetbridge
 
 import com.hunterstich.idea.jetbridge.provider.GeminiCliProvider
+import com.hunterstich.idea.jetbridge.provider.OpenCodeProvider
 import com.hunterstich.idea.jetbridge.provider.Provider
-import com.hunterstich.idea.jetbridge.provider.opencode.OpenCodeProvider
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
@@ -16,7 +16,7 @@ import com.intellij.openapi.components.Storage
 )
 class JetbridgeSettings : PersistentStateComponent<JetbridgeSettings.State> {
     class State {
-        var providerType: String = "opencode"
+        var selectedProvider = JetbridgeProviderManager.AvailableProvider.OpenCode
     }
 
     private var myState = State()
@@ -34,15 +34,30 @@ class JetbridgeSettings : PersistentStateComponent<JetbridgeSettings.State> {
 }
 
 object JetbridgeProviderManager {
-    private val providers = mapOf(
-        "opencode" to OpenCodeProvider(),
-        "gemini-cli" to GeminiCliProvider()
-    )
+    private var _provider: Provider? = null
+
+    enum class AvailableProvider(val displayName: String) {
+        OpenCode("opencode"),
+        GeminiCli("gemini-cli");
+
+        companion object {
+            fun fromDisplayName(displayName: String): AvailableProvider {
+                return when (displayName) {
+                    GeminiCli.displayName -> GeminiCli
+                    else -> OpenCode
+                }
+            }
+        }
+    }
 
     val provider: Provider
-        get() = providers[JetbridgeSettings.instance.state.providerType] ?: providers["opencode"]!!
-
-    fun getProvider(type: String): Provider? = providers[type]
-
-    fun getAllProviderTypes(): List<String> = providers.keys.toList()
+        get() {
+            when (JetbridgeSettings.instance.state.selectedProvider) {
+                AvailableProvider.OpenCode ->
+                    if (_provider !is OpenCodeProvider)  _provider = OpenCodeProvider()
+                AvailableProvider.GeminiCli ->
+                    if (_provider !is GeminiCliProvider) _provider = GeminiCliProvider()
+            }
+            return _provider!!
+        }
 }
