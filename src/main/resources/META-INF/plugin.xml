@@ -7,6 +7,7 @@
     <depends optional="true" config-file="jetbridge-ideavim.xml">IdeaVIM</depends>
 
     <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceImplementation="com.hunterstich.idea.jetbridge.JetbridgeSettings"/>
         <postStartupActivity implementation="com.hunterstich.idea.jetbridge.Jetbridge"/>
         <notificationGroup id="Jetbridge notifications"
             displayType="BALLOON"
@@ -29,5 +30,10 @@
             class="com.hunterstich.idea.jetbridge.JetbridgeConnectOpenCodeAction"
             text="Jetbridge: Connect OpenCode"
             description="Connect to an OpenCode instance" />
+        <action
+            id="Jetbridge.SelectProviderAction"
+            class="com.hunterstich.idea.jetbridge.JetbridgeSelectProviderAction"
+            text="Jetbridge: Select Provider"
+            description="Select the preferred provider" />
     </actions>
 </idea-plugin>

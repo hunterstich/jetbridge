@@ -1,5 +1,6 @@
 package com.hunterstich.idea.jetbridge
 
+import com.hunterstich.idea.jetbridge.provider.Provider
 import com.hunterstich.idea.jetbridge.provider.opencode.OpenCodeApi
 import com.hunterstich.idea.jetbridge.provider.opencode.OpenCodeComponents
 import com.hunterstich.idea.jetbridge.provider.opencode.OpenCodeProvider
@@ -8,12 +9,16 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.popup.JBPopupFactory
+import javax.swing.ListSelectionModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val provider = OpenCodeProvider()
+// TODO: Move into an app settings class that persists settings and expose a new action
+// that allows user to select from supported providers: opencode, gemini-cli
+private val provider: Provider get() = JetbridgeProviderManager.provider
 
 class JetbridgePromptAction : AnAction() {
     override fun actionPerformed(event: AnActionEvent) {
@@ -41,13 +46,32 @@ class JetbridgeAskAction : AnAction() {
 
 class JetbridgeConnectOpenCodeAction : AnAction() {
     override fun actionPerformed(event: AnActionEvent) {
+        val opProvider = JetbridgeProviderManager.getProvider("opencode") as? OpenCodeProvider ?: return
         CoroutineScope(Dispatchers.IO).launch {
             val servers = OpenCodeApi.getServers()
             withContext(Dispatchers.Main) {
                 val result = OpenCodeComponents.showConnectDialog(servers) ?: return@withContext
-                provider.connect(result.server, result.session)
+                opProvider.connect(result.server, result.session)
             }
         }
+    }
+}
+
+class JetbridgeSelectProviderAction : AnAction() {
+    override fun actionPerformed(event: AnActionEvent) {
+        val providers = JetbridgeProviderManager.getAllProviderTypes()
+        val current = JetbridgeSettings.instance.state.providerType
+
+        val popup = JBPopupFactory.getInstance().createPopupChooserBuilder(providers)
+            .setTitle("Select provider")
+            .setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
+            .setSelectedValue(current, true)
+            .setItemChosenCallback { selected ->
+                JetbridgeSettings.instance.state.providerType = selected
+            }
+            .createPopup()
+
+        popup.showInBestPositionFor(event.dataContext)
     }
 }
 
