@@ -1,7 +1,6 @@
 package com.hunterstich.idea.jetbridge
 
 import com.intellij.ide.plugins.PluginManagerCore
-import com.intellij.ide.util.EditorHelper
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CustomShortcutSet
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
@@ -10,30 +9,23 @@ import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
-import com.intellij.openapi.editor.impl.EditorImpl
 import com.intellij.openapi.editor.markup.HighlighterLayer
 import com.intellij.openapi.editor.markup.HighlighterTargetArea
 import com.intellij.openapi.editor.markup.TextAttributes
 import com.intellij.openapi.extensions.PluginId
-import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.impl.FileDocumentManagerImpl
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
-import com.intellij.openapi.vfs.VfsUtil
-import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightVirtualFile
 import com.intellij.ui.EditorTextField
 import com.maddyhome.idea.vim.KeyHandler
 import com.maddyhome.idea.vim.api.injector
 import com.maddyhome.idea.vim.helper.inNormalMode
 import com.maddyhome.idea.vim.newapi.vim
-import com.maddyhome.idea.vim.state.mode.Mode
 import java.awt.Dimension
 import java.awt.Font
 import java.awt.event.ActionListener
-import java.awt.event.FocusEvent
-import java.awt.event.FocusListener
 import java.awt.event.KeyEvent
 import javax.swing.JComponent
 import javax.swing.KeyStroke
@@ -48,7 +40,7 @@ import javax.swing.KeyStroke
  * - Macros like @this, @file, etc. are highlighted as the user types.
  * - IdeaVIM keybindings work if the user has `set ideavimsupport+=dialog` in their .ideavimrc.
  */
-class JetbridgeDialog(
+class PromptDialog(
     project: Project?,
     dialogTitle: String,
     private val prepopulatedText: String,

@@ -52,7 +52,7 @@ class JetbridgeConnectOpenCodeAction : AnAction() {
 }
 
 private fun captureDialogInput(project: Project?, title: String, prepopulatedText: String): String? {
-    val dialog = JetbridgeDialog(project, title, prepopulatedText)
+    val dialog = PromptDialog(project, title, prepopulatedText)
     dialog.show()
     return if (dialog.isOK) dialog.inputText else null
 }

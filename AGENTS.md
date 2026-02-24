@@ -53,7 +53,7 @@ There is no CI/CD pipeline.
 src/main/kotlin/com/hunterstich/idea/jetbridge/
   Jetbridge.kt                  # ProjectActivity: startup, event bus listener, notifications
   JetbridgePromptAction.kt      # AnAction subclasses: PromptAction and AskAction
-  JetbridgeDialog.kt            # WIP multi-line vim-enabled prompt dialog
+  PromptDialog.kt               # A multi-line vim-enabled prompt dialog
   Macros.kt                     # String extension functions for macro expansion
   provider/
     Provider.kt                 # Provider interface, ProviderEvent sealed class, Bus object
