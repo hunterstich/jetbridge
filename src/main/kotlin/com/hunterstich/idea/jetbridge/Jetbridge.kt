@@ -39,7 +39,12 @@ class Jetbridge : ProjectActivity {
                         }
                         is ProviderEvent.Error -> {
                             withContext(Dispatchers.Main) {
-                                scope.showNotification(project, msg.error, NotificationType.ERROR)
+                                scope.showNotification(
+                                    project,
+                                    msg.error,
+                                    NotificationType.ERROR,
+                                    duration = if (msg.indefinite) null else 3000L
+                                )
                             }
                         }
                     }
@@ -53,16 +58,18 @@ private fun CoroutineScope.showNotification(
     project: Project,
     message: String,
     type: NotificationType = NotificationType.INFORMATION,
-    duration: Long = 3000L,
+    duration: Long? = 3000L,
 ) {
     val notif = NotificationGroupManager.getInstance()
         .getNotificationGroup("Jetbridge notifications")
         .createNotification(message, type).apply {
-            isRemoveWhenExpired = true
+            isRemoveWhenExpired = duration != null
         }
     notif.notify(project)
-    launch {
-        delay(duration)
-        notif.expire()
+    if (duration != null) {
+        launch {
+            delay(duration)
+            notif.expire()
+        }
     }
 }

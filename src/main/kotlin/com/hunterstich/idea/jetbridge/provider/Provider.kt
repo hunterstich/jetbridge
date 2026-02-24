@@ -13,7 +13,7 @@ interface Provider {
 sealed class ProviderEvent {
     data class Status(val message: String) : ProviderEvent()
     data class Message(val message: String): ProviderEvent()
-    data class Error(val error: String) : ProviderEvent()
+    data class Error(val error: String, val indefinite: Boolean = false) : ProviderEvent()
 }
 
 object Bus {

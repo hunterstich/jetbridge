@@ -1,11 +1,16 @@
 package com.hunterstich.idea.jetbridge.provider
 
+import com.hunterstich.idea.jetbridge.cleanAllMacros
+import com.hunterstich.idea.jetbridge.expandInlineMacros
 import com.intellij.openapi.editor.Editor
+import com.intellij.util.io.awaitExit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
+private val tmuxSessionName = "gemini-jetbridge"
 
 /**
  * For gemini-cli, the provider must be started in a tmux session with:
@@ -23,16 +28,43 @@ class GeminiCliProvider : Provider {
     override fun prompt(rawPrompt: String, editor: Editor) {
         scope.launch {
             try {
-                // TODO: Ensure there is a tmux session with the specific name
+                if (!hasTmuxSession(tmuxSessionName)) {
+                    Bus.emit(ProviderEvent.Error(
+                        "No tmux session '$tmuxSessionName' found. Start one with: " +
+                                "tmux new-session -s $tmuxSessionName 'gemini'",
+                        indefinite = true
+                    ))
+                    return@launch
+                }
+
+                val projectPath = editor.project?.basePath ?: ""
+                var prompt = withContext(Dispatchers.Main) {
+                    rawPrompt.expandInlineMacros(editor, projectPath)
+                }
+                prompt = prompt.cleanAllMacros()
+
                 // Append to gemini
-                ProcessBuilder("tmux", "send-keys", "-t", "gemini", rawPrompt).start()
+                ProcessBuilder("tmux", "send-keys", "-t", tmuxSessionName, prompt)
+                    .start()
+                    .awaitExit()
                 delay(100)
                 // Submit the prompt
-                ProcessBuilder("tmux", "send-keys", "-t", "gemini", "C-m").start()
+                ProcessBuilder("tmux", "send-keys", "-t", tmuxSessionName, "C-m")
+                    .start()
+                    .awaitExit()
             } catch (e: Exception) {
-                println("Error sending prompt to tmux for gemini-cli: ${e.message}")
                 e.printStackTrace()
+                Bus.emit(ProviderEvent.Error("Error sending prompt to tmux: ${e.message}"))
             }
+        }
+    }
+
+    private fun hasTmuxSession(name: String): Boolean {
+        return try {
+            val process = ProcessBuilder("tmux", "has-session", "-t", name).start()
+            process.waitFor() == 0
+        } catch (e: Exception) {
+            false
         }
     }
 }
