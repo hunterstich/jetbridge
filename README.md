@@ -36,8 +36,10 @@ agents, etc._
 2. Build the plugin: `./gradlew buildPlugin`
 3. Install the resulting ZIP from `build/distributions/` into your IDE through
    the "Settings > Plugins > Install plugins from disk" option
-4. For IdeaVIM: Add keybindings to your `.ideavimrc` with:
+4. For IdeaVIM: Enable vim in the prompt dialog and add keybindings to your `.ideavimrc` with:
    ```vim
+   set ideavimsupport+=dialog
+   
    nmap <leader>oo :action Jetbridge.PromptAction<CR>
    vmap <leader>oo :action Jetbridge.PromptAction<CR>
    nmap <leader>oa :action Jetbridge.AskAction<CR>

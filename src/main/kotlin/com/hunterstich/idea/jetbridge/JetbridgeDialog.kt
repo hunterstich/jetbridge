@@ -1,5 +1,7 @@
 package com.hunterstich.idea.jetbridge
 
+import com.intellij.ide.plugins.PluginManagerCore
+import com.intellij.ide.util.EditorHelper
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CustomShortcutSet
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
@@ -8,16 +10,33 @@ import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
+import com.intellij.openapi.editor.impl.EditorImpl
 import com.intellij.openapi.editor.markup.HighlighterLayer
 import com.intellij.openapi.editor.markup.HighlighterTargetArea
 import com.intellij.openapi.editor.markup.TextAttributes
+import com.intellij.openapi.extensions.PluginId
+import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.fileEditor.impl.FileDocumentManagerImpl
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.openapi.vfs.VfsUtil
+import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.testFramework.LightVirtualFile
 import com.intellij.ui.EditorTextField
+import com.maddyhome.idea.vim.KeyHandler
+import com.maddyhome.idea.vim.api.injector
+import com.maddyhome.idea.vim.helper.inNormalMode
+import com.maddyhome.idea.vim.newapi.vim
+import com.maddyhome.idea.vim.state.mode.Mode
 import java.awt.Dimension
 import java.awt.Font
+import java.awt.event.ActionListener
+import java.awt.event.FocusEvent
+import java.awt.event.FocusListener
+import java.awt.event.KeyEvent
 import javax.swing.JComponent
+import javax.swing.KeyStroke
 
 
 /**
@@ -27,6 +46,7 @@ import javax.swing.JComponent
  * - Shift+Enter inserts a newline.
  * - Escape closes the dialog.
  * - Macros like @this, @file, etc. are highlighted as the user types.
+ * - IdeaVIM keybindings work if the user has `set ideavimsupport+=dialog` in their .ideavimrc.
  */
 class JetbridgeDialog(
     project: Project?,
@@ -36,12 +56,22 @@ class JetbridgeDialog(
 
     private val editorTextField: EditorTextField
 
+    val vimPlugin = PluginManagerCore.getPlugin(PluginId.getId("IdeaVIM"))
+    val vimEnabled = vimPlugin != null && vimPlugin.isEnabled()
+
     val inputText: String
         get() = editorTextField.text
 
     init {
         title = dialogTitle
         val document = EditorFactory.getInstance().createDocument(prepopulatedText)
+        if (vimEnabled) {
+            // Hack to force vim being enabled by getting around
+            // com.maddyhome.idea.vim.helper.EditorHelper#Editor.isNotFileEditorExceptAllowed()
+            // which disables vim in tool windows and dialogs except for a few hard-coded exceptions
+            val virtualFile = LightVirtualFile("Dummy.txt", prepopulatedText)
+            FileDocumentManagerImpl.registerDocument(document, virtualFile)
+        }
         editorTextField = EditorTextField(
             /* document = */ document,
             /* project = */ project,
@@ -49,7 +79,7 @@ class JetbridgeDialog(
             /* isViewer = */ false,
             /* oneLineMode = */ false
         ).apply {
-            preferredSize = Dimension(400, 200)
+            preferredSize = Dimension(450, 150)
             setFontInheritedFromLAF(false)
             addSettingsProvider { editor ->
                 editor.settings.apply {
@@ -57,6 +87,9 @@ class JetbridgeDialog(
                     isWhitespacesShown = false
                     isFoldingOutlineShown = false
                     additionalLinesCount = 0
+                    isUseSoftWraps = true
+                    // Don't draw the little return icons
+                    isPaintSoftWraps = false
                 }
                 editor.backgroundColor = EditorColorsManager.getInstance()
                     .globalScheme
@@ -92,6 +125,42 @@ class JetbridgeDialog(
     override fun createCenterPanel(): JComponent = editorTextField
 
     override fun getPreferredFocusedComponent(): JComponent = editorTextField
+
+    override fun createCancelAction(): ActionListener {
+        return ActionListener { e ->
+            if (!maybeHandleVimEscape()) {
+                doCancelAction(e)
+            }
+        }
+    }
+
+    /**
+     * If IdeaVIM is not in normal mode, intercept the cancel action and send the escape key to
+     * IdeaVIM which will put it in normal mode.
+     *
+     * This is a fix. When you open the dialog, vim is in insert mode. Pressing escape before
+     * moving the caret would cause the dialog to cancel instead of being handled by IdeaVIM.
+     */
+    private fun maybeHandleVimEscape(): Boolean {
+        try {
+            if (!vimEnabled) return false
+            val editor = editorTextField.editor ?: return false
+            val vim = editor.vim
+            if (vim.mode.inNormalMode) return false
+
+            val context = injector.executionContextManager.getEditorExecutionContext(vim)
+            KeyHandler.getInstance().handleKey(
+                vim,
+                KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
+                context,
+                KeyHandler.getInstance().keyHandlerState
+            )
+            return true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return false
+        }
+    }
 
     /**
      * Scans the editor text for known macros and applies highlight markers.
