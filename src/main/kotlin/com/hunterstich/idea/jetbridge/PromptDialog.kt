@@ -17,14 +17,18 @@ import com.intellij.openapi.fileEditor.impl.FileDocumentManagerImpl
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.openapi.util.Disposer
 import com.intellij.testFramework.LightVirtualFile
 import com.intellij.ui.EditorTextField
 import com.maddyhome.idea.vim.KeyHandler
 import com.maddyhome.idea.vim.api.injector
 import com.maddyhome.idea.vim.helper.inNormalMode
+import com.maddyhome.idea.vim.newapi.ij
 import com.maddyhome.idea.vim.newapi.vim
 import java.awt.Dimension
 import java.awt.Font
+import java.awt.KeyEventDispatcher
+import java.awt.KeyboardFocusManager
 import java.awt.event.ActionListener
 import java.awt.event.KeyEvent
 import javax.swing.JComponent
@@ -111,6 +115,8 @@ class PromptDialog(
             }
         }, this.disposable)
 
+        registerVimCommandShortcuts()
+
         init()
     }
 
@@ -151,6 +157,45 @@ class PromptDialog(
         } catch (e: Exception) {
             e.printStackTrace()
             return false
+        }
+    }
+
+    /** Handle vim commands - `:wq` to submit the prompt and `q` to cancel the dialog. */
+    private fun registerVimCommandShortcuts() {
+        if (!vimEnabled) return
+
+        val keyboardFocusManager = KeyboardFocusManager.getCurrentKeyboardFocusManager()
+        val keyEventDispatcher = KeyEventDispatcher { event ->
+            if (event.id != KeyEvent.KEY_PRESSED || event.keyCode != KeyEvent.VK_ENTER) {
+                return@KeyEventDispatcher false
+            }
+
+            val editor = editorTextField.editor ?: return@KeyEventDispatcher false
+            val commandLine = injector.commandLine.getActiveCommandLine()
+                ?: return@KeyEventDispatcher false
+            if (commandLine.getLabel() != ":") return@KeyEventDispatcher false
+            if (commandLine.editor.ij != editor) return@KeyEventDispatcher false
+
+            when (commandLine.text.trim().lowercase()) {
+                "q" -> {
+                    commandLine.close(refocusOwningEditor = false, resetCaret = false)
+                    doCancelAction()
+                    true
+                }
+
+                "wq" -> {
+                    commandLine.close(refocusOwningEditor = false, resetCaret = false)
+                    doOKAction()
+                    true
+                }
+
+                else -> false
+            }
+        }
+
+        keyboardFocusManager.addKeyEventDispatcher(keyEventDispatcher)
+        Disposer.register(disposable) {
+            keyboardFocusManager.removeKeyEventDispatcher(keyEventDispatcher)
         }
     }
 
