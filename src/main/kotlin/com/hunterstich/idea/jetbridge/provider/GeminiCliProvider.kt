@@ -3,6 +3,7 @@ package com.hunterstich.idea.jetbridge.provider
 import com.hunterstich.idea.jetbridge.cleanAllMacros
 import com.hunterstich.idea.jetbridge.expandInlineMacros
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.project.Project
 import com.intellij.util.io.awaitExit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -10,7 +11,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val tmuxSessionName = "gemini-jetbridge"
 
 /**
  * For gemini-cli, the provider must be started in a tmux session with:
@@ -22,8 +22,34 @@ private val tmuxSessionName = "gemini-jetbridge"
  */
 class GeminiCliProvider : Provider {
 
-    override val displayName: String = "gemini-cli"
     private val scope = CoroutineScope(Dispatchers.IO)
+
+    // TODO: Move into JetbridgeSetting and allow customization of tmux session name
+    private val tmuxSessionName = "gemini-jetbridge"
+
+    override val displayName: String = "gemini-cli"
+    override val connectionDesc: String
+        get() = tmuxSessionName
+
+    override fun reconnect(project: Project?) {
+        if (hasTmuxSession(tmuxSessionName)) {
+            scope.launch {
+                Bus.emit(
+                    ProviderEvent.Status(
+                        "Jetbridge: Connected to gemini-cli tmux session \"$tmuxSessionName\""
+                    )
+                )
+            }
+        } else {
+            scope.launch {
+                Bus.emit(
+                    ProviderEvent.Error(
+                        "Jetbridge: No gemini-cli tmux session found for \"$tmuxSessionName\""
+                    )
+                )
+            }
+        }
+    }
 
     override fun prompt(rawPrompt: String, editor: Editor) {
         scope.launch {

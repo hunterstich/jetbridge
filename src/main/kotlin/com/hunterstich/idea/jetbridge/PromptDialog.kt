@@ -1,5 +1,6 @@
 package com.hunterstich.idea.jetbridge
 
+import com.hunterstich.idea.jetbridge.provider.Provider
 import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CustomShortcutSet
@@ -20,11 +21,15 @@ import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.util.Disposer
 import com.intellij.testFramework.LightVirtualFile
 import com.intellij.ui.EditorTextField
+import com.intellij.ui.components.JBLabel
+import com.intellij.util.ui.JBUI
+import com.intellij.util.ui.UIUtil
 import com.maddyhome.idea.vim.KeyHandler
 import com.maddyhome.idea.vim.api.injector
 import com.maddyhome.idea.vim.helper.inNormalMode
 import com.maddyhome.idea.vim.newapi.ij
 import com.maddyhome.idea.vim.newapi.vim
+import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.Font
 import java.awt.KeyEventDispatcher
@@ -32,6 +37,7 @@ import java.awt.KeyboardFocusManager
 import java.awt.event.ActionListener
 import java.awt.event.KeyEvent
 import javax.swing.JComponent
+import javax.swing.JPanel
 import javax.swing.KeyStroke
 
 
@@ -48,8 +54,10 @@ class PromptDialog(
     project: Project?,
     dialogTitle: String,
     private val prepopulatedText: String,
+    private val provider: Provider,
 ) : DialogWrapper(project) {
 
+    private val centerPanel: JComponent
     private val editorTextField: EditorTextField
 
     val vimPlugin = PluginManagerCore.getPlugin(PluginId.getId("IdeaVIM"))
@@ -115,12 +123,17 @@ class PromptDialog(
             }
         }, this.disposable)
 
+        centerPanel = JPanel(BorderLayout()).apply {
+            add(editorTextField, BorderLayout.CENTER)
+            add(createHintLabel(), BorderLayout.SOUTH)
+        }
+
         registerVimCommandShortcuts()
 
         init()
     }
 
-    override fun createCenterPanel(): JComponent = editorTextField
+    override fun createCenterPanel(): JComponent = centerPanel
 
     override fun getPreferredFocusedComponent(): JComponent = editorTextField
 
@@ -196,6 +209,14 @@ class PromptDialog(
         keyboardFocusManager.addKeyEventDispatcher(keyEventDispatcher)
         Disposer.register(disposable) {
             keyboardFocusManager.removeKeyEventDispatcher(keyEventDispatcher)
+        }
+    }
+
+    private fun createHintLabel(): JComponent {
+        val hintText = "Connection: ${provider.displayName} - ${provider.connectionDesc}"
+        return JBLabel(hintText).apply {
+            foreground = UIUtil.getContextHelpForeground()
+            border = JBUI.Borders.emptyTop(6)
         }
     }
 

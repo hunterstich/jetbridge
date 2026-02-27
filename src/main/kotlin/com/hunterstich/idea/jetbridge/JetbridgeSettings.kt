@@ -17,6 +17,10 @@ import com.intellij.openapi.components.Storage
 class JetbridgeSettings : PersistentStateComponent<JetbridgeSettings.State> {
     class State {
         var selectedProvider = JetbridgeProviderManager.AvailableProvider.OpenCode
+
+        /** OpenCode settings **/
+        var openCodeLastAddress: String? = null
+        var openCodeLastSessionId: String? = null
     }
 
     private var myState = State()

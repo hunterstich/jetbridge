@@ -1,9 +1,11 @@
 package com.hunterstich.idea.jetbridge.provider
 
+import com.hunterstich.idea.jetbridge.JetbridgeSettings
 import com.hunterstich.idea.jetbridge.cleanAllMacros
 import com.hunterstich.idea.jetbridge.expandInlineMacros
 import com.hunterstich.idea.jetbridge.provider.opencode.OpenCodeApi
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.project.Project
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -27,11 +29,22 @@ class OpenCodeProvider : Provider {
     private var sseJob: Job? = null
 
     override val displayName: String = "opencode"
+    override val connectionDesc: String
+        get() = session?.title ?: "none"
+
+    override fun reconnect(project: Project?) {
+        scope.launch {
+            if (!ensureConnected(project?.projectFilePath)) {
+                Bus.emit(ProviderEvent.Error("Jetbridge: No connected opencode session"))
+            }
+        }
+    }
 
     override fun prompt(rawPrompt: String, editor: Editor) {
         scope.launch {
             try {
-                if (!ensureConnected(editor)) {
+                val filePath = editor.virtualFile?.path
+                if (!ensureConnected(filePath)) {
                     Bus.emit(
                         ProviderEvent.Error("No running opencode instance found in project path")
                     )
@@ -86,17 +99,58 @@ class OpenCodeProvider : Provider {
         }
     }
 
-    private suspend fun ensureConnected(editor: Editor): Boolean {
-        if (!isConnected) {
-            // Try to auto connect to a server nearest the current file path and its most recent
-            // session.
-            val filePath = editor.virtualFile?.path ?: return false
-            // get all servers
-            val nearestServer = OpenCodeApi.getServers()
-                .sortedByDescending { it.path.directory.length }
-                .firstOrNull { filePath.contains(it.path.directory) } ?: return false
+    private fun findSavedConnection(
+        servers: List<OpenCodeApi.Server>,
+        address: String,
+        sessionId: String,
+    ): Pair<OpenCodeApi.Server, OpenCodeApi.Session>? {
+        val selectedServer = servers.firstOrNull { it.address == address }
+        if (selectedServer != null) {
+            val selectedSession = OpenCodeApi.getSessions(selectedServer.address)
+                .getOrNull()
+                ?.firstOrNull { it.id == sessionId }
+            if (selectedSession != null) {
+                return selectedServer to selectedSession
+            }
+        }
 
-            // Get the most recently updated session
+        servers.forEach { server ->
+            val session = OpenCodeApi.getSessions(server.address)
+                .getOrNull()
+                ?.firstOrNull { it.id == sessionId }
+            if (session != null) {
+                return server to session
+            }
+        }
+        return null
+    }
+
+    private suspend fun ensureConnected(filePath: String?): Boolean {
+        if (!isConnected) {
+            val servers = OpenCodeApi.getServers()
+            if (servers.isEmpty()) return false
+
+            val lastAddress = JetbridgeSettings.instance.state.openCodeLastAddress
+            val lastSessionId = JetbridgeSettings.instance.state.openCodeLastSessionId
+            if (lastAddress != null && lastSessionId != null) {
+                val savedConnection = findSavedConnection(servers, lastAddress, lastSessionId)
+                if (savedConnection != null) {
+                    connect(savedConnection.first, savedConnection.second)
+                    return true
+                }
+            }
+
+            // Fall back to nearest server for current file path and its most recent session.
+            val nearestServer = if (filePath == null) {
+                // If there isn't a file path, there isn't a way to judge path nearness. Simply
+                // use the first server in the list.
+                servers.firstOrNull()
+            } else {
+                servers
+                    .sortedByDescending { it.path.directory.length }
+                    .firstOrNull { filePath.contains(it.path.directory) }
+            } ?: return false
+
             val session = OpenCodeApi.getSessions(nearestServer.address)
                 .getOrNull()
                 ?.maxByOrNull { it.time.updated } ?: return false
@@ -111,6 +165,9 @@ class OpenCodeProvider : Provider {
         this.server = server
         this.session = session
         this.isConnected = true
+        JetbridgeSettings.instance.state.openCodeLastAddress = server.address
+        JetbridgeSettings.instance.state.openCodeLastSessionId = session.id
+
         sseJob?.cancel()
         sseJob = scope.launch {
             OpenCodeApi.getEventsFlow(server.address).collect { event ->
@@ -121,12 +178,15 @@ class OpenCodeProvider : Provider {
                         isConnected = false
                     }
                     "question.asked" -> {
-                        Bus.emit(ProviderEvent.Message("OpenCode asked a question"))
+                        Bus.emit(ProviderEvent.Message("Jetbridge: OpenCode asked a question"))
                     }
                 }
             }
-            Bus.emit(ProviderEvent.Message(
-                "Connected to ${server.address} for session ${session.title}"
+
+        }
+        scope.launch {
+            Bus.emit(ProviderEvent.Status(
+                "Jetbridge: Connected to opencode session \"$connectionDesc\""
             ))
         }
     }

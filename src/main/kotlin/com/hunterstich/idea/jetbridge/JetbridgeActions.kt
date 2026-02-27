@@ -1,21 +1,20 @@
 package com.hunterstich.idea.jetbridge
 
 import com.hunterstich.idea.jetbridge.JetbridgeProviderManager.AvailableProvider
-import com.hunterstich.idea.jetbridge.provider.Provider
+import com.hunterstich.idea.jetbridge.provider.OpenCodeProvider
 import com.hunterstich.idea.jetbridge.provider.opencode.OpenCodeApi
 import com.hunterstich.idea.jetbridge.provider.opencode.OpenCodeComponents
-import com.hunterstich.idea.jetbridge.provider.OpenCodeProvider
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopupFactory
-import javax.swing.ListSelectionModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import javax.swing.ListSelectionModel
 
 class JetbridgePromptAction : AnAction() {
     override fun actionPerformed(event: AnActionEvent) {
@@ -68,7 +67,12 @@ class JetbridgeSelectProviderAction : AnAction() {
             .setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
             .setSelectedValue(current, true)
             .setItemChosenCallback { selected ->
-                JetbridgeSettings.instance.state.selectedProvider = AvailableProvider.fromDisplayName(selected)
+                val newProvider = AvailableProvider.fromDisplayName(selected);
+                if (JetbridgeSettings.instance.state.selectedProvider != newProvider) {
+                    JetbridgeSettings.instance.state.selectedProvider =
+                        AvailableProvider.fromDisplayName(selected)
+                    JetbridgeProviderManager.provider.reconnect(event.project)
+                }
             }
             .createPopup()
 
@@ -77,7 +81,7 @@ class JetbridgeSelectProviderAction : AnAction() {
 }
 
 private fun captureDialogInput(project: Project?, title: String, prepopulatedText: String): String? {
-    val dialog = PromptDialog(project, title, prepopulatedText)
+    val dialog = PromptDialog(project, title, prepopulatedText, JetbridgeProviderManager.provider)
     dialog.show()
     return if (dialog.isOK) dialog.inputText else null
 }

@@ -1,12 +1,19 @@
 package com.hunterstich.idea.jetbridge.provider
 
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.project.Project
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 interface Provider {
     val displayName: String
+    val connectionDesc: String
+
+    /**
+     * Reconnect to the most recently used provider connection.
+     */
+    fun reconnect(project: Project?)
     fun prompt(rawPrompt: String, editor: Editor)
 }
 
@@ -26,4 +33,3 @@ object Bus {
         _messages.emit(msg)
     }
 }
-

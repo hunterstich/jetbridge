@@ -50,6 +50,10 @@ class Jetbridge : ProjectActivity {
                     }
                 }
             }
+
+            scope.launch {
+                JetbridgeProviderManager.provider.reconnect(project)
+            }
         }
     }
 }
