@@ -4,6 +4,7 @@ import com.hunterstich.idea.jetbridge.JetbridgeProviderManager.AvailableProvider
 import com.hunterstich.idea.jetbridge.provider.OpenCodeProvider
 import com.hunterstich.idea.jetbridge.provider.opencode.OpenCodeApi
 import com.hunterstich.idea.jetbridge.provider.opencode.OpenCodeComponents
+import com.hunterstich.idea.jetbridge.utils.captureContextSnapshot
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
@@ -19,24 +20,26 @@ import javax.swing.ListSelectionModel
 class JetbridgePromptAction : AnAction() {
     override fun actionPerformed(event: AnActionEvent) {
         val editor: Editor = event.getData(CommonDataKeys.EDITOR) ?: return
+        val contextSnapshot = captureContextSnapshot(editor, event)
         val rawInput = captureDialogInput(
             event.project,
             "${JetbridgeProviderManager.provider.displayName} prompt:",
             ""
         ) ?: return
-        JetbridgeProviderManager.provider.prompt(rawInput, editor)
+        JetbridgeProviderManager.provider.prompt(rawInput, contextSnapshot)
     }
 }
 
 class JetbridgeAskAction : AnAction() {
     override fun actionPerformed(event: AnActionEvent) {
         val editor: Editor = event.getData(CommonDataKeys.EDITOR) ?: return
+        val contextSnapshot = captureContextSnapshot(editor, event)
         val rawInput = captureDialogInput(
             event.project,
             "${JetbridgeProviderManager.provider.displayName} prompt:",
             "@this "
         ) ?: return
-        JetbridgeProviderManager.provider.prompt(rawInput, editor)
+        JetbridgeProviderManager.provider.prompt(rawInput, contextSnapshot)
     }
 }
 
@@ -71,7 +74,7 @@ class JetbridgeSelectProviderAction : AnAction() {
                 if (JetbridgeSettings.instance.state.selectedProvider != newProvider) {
                     JetbridgeSettings.instance.state.selectedProvider =
                         AvailableProvider.fromDisplayName(selected)
-                    JetbridgeProviderManager.provider.reconnect(event.project)
+                    JetbridgeProviderManager.provider.reconnect(event.project?.basePath)
                 }
             }
             .createPopup()

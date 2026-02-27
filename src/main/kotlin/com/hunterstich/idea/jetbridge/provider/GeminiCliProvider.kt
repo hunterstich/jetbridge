@@ -2,8 +2,7 @@ package com.hunterstich.idea.jetbridge.provider
 
 import com.hunterstich.idea.jetbridge.cleanAllMacros
 import com.hunterstich.idea.jetbridge.expandInlineMacros
-import com.intellij.openapi.editor.Editor
-import com.intellij.openapi.project.Project
+import com.hunterstich.idea.jetbridge.utils.ContextSnapshot
 import com.intellij.util.io.awaitExit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,7 +30,7 @@ class GeminiCliProvider : Provider {
     override val connectionDesc: String
         get() = tmuxSessionName
 
-    override fun reconnect(project: Project?) {
+    override fun reconnect(projectPath: String?) {
         if (hasTmuxSession(tmuxSessionName)) {
             scope.launch {
                 Bus.emit(
@@ -51,7 +50,7 @@ class GeminiCliProvider : Provider {
         }
     }
 
-    override fun prompt(rawPrompt: String, editor: Editor) {
+    override fun prompt(rawPrompt: String, snapshot: ContextSnapshot) {
         scope.launch {
             try {
                 if (!hasTmuxSession(tmuxSessionName)) {
@@ -63,9 +62,9 @@ class GeminiCliProvider : Provider {
                     return@launch
                 }
 
-                val projectPath = editor.project?.basePath ?: ""
+                val projectPath = snapshot.projectPath ?: ""
                 var prompt = withContext(Dispatchers.Main) {
-                    rawPrompt.expandInlineMacros(editor, projectPath)
+                    rawPrompt.expandInlineMacros(projectPath, snapshot)
                 }
                 prompt = prompt.cleanAllMacros()
 

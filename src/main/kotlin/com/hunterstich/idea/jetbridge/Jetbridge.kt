@@ -52,7 +52,7 @@ class Jetbridge : ProjectActivity {
             }
 
             scope.launch {
-                JetbridgeProviderManager.provider.reconnect(project)
+                JetbridgeProviderManager.provider.reconnect(project.basePath)
             }
         }
     }

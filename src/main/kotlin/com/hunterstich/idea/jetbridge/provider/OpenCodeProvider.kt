@@ -4,8 +4,7 @@ import com.hunterstich.idea.jetbridge.JetbridgeSettings
 import com.hunterstich.idea.jetbridge.cleanAllMacros
 import com.hunterstich.idea.jetbridge.expandInlineMacros
 import com.hunterstich.idea.jetbridge.provider.opencode.OpenCodeApi
-import com.intellij.openapi.editor.Editor
-import com.intellij.openapi.project.Project
+import com.hunterstich.idea.jetbridge.utils.ContextSnapshot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -32,18 +31,18 @@ class OpenCodeProvider : Provider {
     override val connectionDesc: String
         get() = session?.title ?: "none"
 
-    override fun reconnect(project: Project?) {
+    override fun reconnect(projectPath: String?) {
         scope.launch {
-            if (!ensureConnected(project?.projectFilePath)) {
+            if (!ensureConnected(projectPath)) {
                 Bus.emit(ProviderEvent.Error("Jetbridge: No connected opencode session"))
             }
         }
     }
 
-    override fun prompt(rawPrompt: String, editor: Editor) {
+    override fun prompt(rawPrompt: String, snapshot: ContextSnapshot) {
         scope.launch {
             try {
-                val filePath = editor.virtualFile?.path
+                val filePath: String? = snapshot.filePath
                 if (!ensureConnected(filePath)) {
                     Bus.emit(
                         ProviderEvent.Error("No running opencode instance found in project path")
@@ -62,7 +61,7 @@ class OpenCodeProvider : Provider {
                 }
 
                 var prompt = withContext(Dispatchers.Main) {
-                    rawPrompt.expandInlineMacros(editor, serverPath)
+                    rawPrompt.expandInlineMacros(serverPath, snapshot)
                 }
                 val agent = extractAgent(prompt)
                 prompt = prompt.cleanAllMacros()

@@ -1,7 +1,6 @@
 package com.hunterstich.idea.jetbridge.provider
 
-import com.intellij.openapi.editor.Editor
-import com.intellij.openapi.project.Project
+import com.hunterstich.idea.jetbridge.utils.ContextSnapshot
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -15,11 +14,8 @@ interface Provider {
      *
      * Implementations should use persisted provider-specific settings (for example, last used
      * address/session identifiers) and reconnect silently when possible.
-     *
-     * @param project The active IntelliJ project when available. Some providers may use this to
-     *   scope reconnect behavior; others may ignore it.
      */
-    fun reconnect(project: Project?)
+    fun reconnect(projectPath: String?)
 
     /**
      * Send a user prompt to the provider.
@@ -30,8 +26,10 @@ interface Provider {
      * @param rawPrompt The raw prompt string captured from the UI before provider-specific parsing.
      * @param editor The active editor used for contextual macros (for example, current file or
      *   selection).
+     * @param snapshot Editor context captured at action invocation time. This preserves caret and
+     *   selection state if focus changes before prompt expansion.
      */
-    fun prompt(rawPrompt: String, editor: Editor)
+    fun prompt(rawPrompt: String, snapshot: ContextSnapshot)
 }
 
 sealed class ProviderEvent {

@@ -1,5 +1,7 @@
 package com.hunterstich.idea.jetbridge
 
+import com.hunterstich.idea.jetbridge.utils.ContextSnapshot
+import com.hunterstich.idea.jetbridge.utils.captureContextSnapshot
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
 
@@ -17,30 +19,24 @@ internal val allMacroRegex = listOf(
     """@a:\w+""".toRegex()
 )
 
-fun String.expandInlineMacros(editor: Editor, providerPath: String): String {
+fun String.expandInlineMacros(
+    providerPath: String,
+    snapshot: ContextSnapshot
+): String {
     var result = this
-    if (result.contains("@this")) {
+    if (result.contains("@this") && snapshot.filePath != null) {
         var value = ""
         ApplicationManager.getApplication().runReadAction {
-            val filePath = getRelativePath(editor.virtualFile?.path, providerPath)
-            value = "@$filePath"
-            val selectionModel = editor.selectionModel
-            if (selectionModel.hasSelection()) {
-                val startPos = editor.offsetToLogicalPosition(selectionModel.selectionStart)
-                val endPos = editor.offsetToLogicalPosition(selectionModel.selectionEnd)
-                value += " L${startPos.line + 1}:C${startPos.column + 1}-L${endPos.line + 1}:C${endPos.column + 1}"
-            } else {
-                val caretPos = editor.caretModel.primaryCaret.logicalPosition
-                value += " L${caretPos.line + 1}:C${caretPos.column + 1}"
-            }
+            val filePath = getRelativePath(snapshot.filePath, providerPath)
+            value = "@$filePath ${snapshot.selectionDesc}"
         }
 
         result = result.replace("@this", value)
     }
 
-    if (result.contains("@file")) {
+    if (result.contains("@file") && snapshot.filePath != null) {
         ApplicationManager.getApplication().runReadAction {
-            val filePath = getRelativePath(editor.virtualFile?.path, providerPath)
+            val filePath = getRelativePath(snapshot.filePath, providerPath)
             result = result.replace("@file", "@$filePath")
         }
     }
@@ -66,9 +62,7 @@ fun String.cleanAllMacros(): String {
     return result.trim()
 }
 
-private fun getRelativePath(fullPath: String?, providerPath: String): String {
-    if (fullPath == null) return ""
-    println("trimming path. full: $fullPath, providerPath: $providerPath")
+private fun getRelativePath(fullPath: String, providerPath: String): String {
     var relativePath = fullPath
     if (fullPath.startsWith(providerPath)) {
         relativePath = fullPath.removePrefix(providerPath)
