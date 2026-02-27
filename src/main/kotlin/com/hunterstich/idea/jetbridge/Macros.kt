@@ -24,13 +24,14 @@ fun String.expandInlineMacros(editor: Editor, providerPath: String): String {
         ApplicationManager.getApplication().runReadAction {
             val filePath = getRelativePath(editor.virtualFile?.path, providerPath)
             value = "@$filePath"
-            val caret = editor.caretModel.primaryCaret
-            if (caret.hasSelection()) {
-                val startPos = caret.selectionStartPosition
-                val endPos = caret.selectionEndPosition
-                value += " L${startPos.line + 1}:C${startPos.column}-L${endPos.line + 1}:C${endPos.column}"
+            val selectionModel = editor.selectionModel
+            if (selectionModel.hasSelection()) {
+                val startPos = editor.offsetToLogicalPosition(selectionModel.selectionStart)
+                val endPos = editor.offsetToLogicalPosition(selectionModel.selectionEnd)
+                value += " L${startPos.line + 1}:C${startPos.column + 1}-L${endPos.line + 1}:C${endPos.column + 1}"
             } else {
-                value += " L${caret.selectionStartPosition.line}"
+                val caretPos = editor.caretModel.primaryCaret.logicalPosition
+                value += " L${caretPos.line + 1}:C${caretPos.column + 1}"
             }
         }
 
