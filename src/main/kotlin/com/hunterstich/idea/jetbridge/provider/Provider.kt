@@ -11,9 +11,26 @@ interface Provider {
     val connectionDesc: String
 
     /**
-     * Reconnect to the most recently used provider connection.
+     * Attempt to restore the provider's previous connection state.
+     *
+     * Implementations should use persisted provider-specific settings (for example, last used
+     * address/session identifiers) and reconnect silently when possible.
+     *
+     * @param project The active IntelliJ project when available. Some providers may use this to
+     *   scope reconnect behavior; others may ignore it.
      */
     fun reconnect(project: Project?)
+
+    /**
+     * Send a user prompt to the provider.
+     *
+     * Implementations are responsible for preparing provider-specific context, handling connection
+     * checks/retries, and dispatching errors through [Bus] as needed.
+     *
+     * @param rawPrompt The raw prompt string captured from the UI before provider-specific parsing.
+     * @param editor The active editor used for contextual macros (for example, current file or
+     *   selection).
+     */
     fun prompt(rawPrompt: String, editor: Editor)
 }
 
