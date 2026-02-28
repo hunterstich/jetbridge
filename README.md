@@ -1,7 +1,6 @@
 # jetbridge ✈️ 🌉
 
-https://github.com/user-attachments/assets/fd3bf887-76be-4bb1-a3e4-552e511e91b4
-
+https://github.com/user-attachments/assets/d071fe3d-11d9-432e-a02f-78053be269a6
 
 Intellij/Android Studio plugin that adds actions for interacting
 with an AI agent tool like opencode or gemini-cli from the IDE editor. Inspired by 
