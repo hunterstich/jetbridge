@@ -6,7 +6,10 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 interface Provider {
+    /** Human-readable provider name shown in UI surfaces such as actions and notifications. */
     val displayName: String
+
+    /** Short connection summary used in status text (for example host, port, or session id). */
     val connectionDesc: String
 
     /**

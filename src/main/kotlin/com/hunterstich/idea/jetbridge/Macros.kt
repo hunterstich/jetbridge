@@ -7,6 +7,7 @@ import com.intellij.openapi.editor.Editor
 
 internal val allMacros = listOf(
     "@this",
+    "@these",
     "@file",
     "@buffer",
     "@dir",
@@ -24,7 +25,7 @@ fun String.expandInlineMacros(
     snapshot: ContextSnapshot
 ): String {
     var result = this
-    if (result.contains("@this") && snapshot.filePath != null) {
+    if ((result.contains("@this") || result.contains("@these")) && snapshot.filePath != null) {
         var value = ""
         ApplicationManager.getApplication().runReadAction {
             val filePath = getRelativePath(snapshot.filePath, providerPath)
@@ -32,6 +33,7 @@ fun String.expandInlineMacros(
         }
 
         result = result.replace("@this", value)
+        result = result.replace("@these", value)
     }
 
     if (result.contains("@file") && snapshot.filePath != null) {
