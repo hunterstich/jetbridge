@@ -1,11 +1,15 @@
 # jetbridge ✈️ 🌉
+
+https://github.com/user-attachments/assets/fd3bf887-76be-4bb1-a3e4-552e511e91b4
+
+
 Intellij/Android Studio plugin that adds actions for interacting
 with an AI agent tool like opencode or gemini-cli from the IDE editor. Inspired by 
  [opencode.nvim](https://github.com/nickjvandyke/opencode.nvim).
 
 ### Why?
 * _Stay on the keyboard: Pull up a prompt dialog with an IntelliJ action or vim keybinding_
-* _Prompt more precisely: '@' macros expand to context in your final prompt, invoke specific
+* _Prompt more precisely: '@' macros expand into context in your final prompt, invoke specific
 agents, etc._
 
 | Example                                                        | Result                                                                                                                                               |
