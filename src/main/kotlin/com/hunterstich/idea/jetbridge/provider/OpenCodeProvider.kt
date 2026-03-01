@@ -95,8 +95,7 @@ class OpenCodeProvider : Provider {
         return when {
             str.contains("@a:") -> """@a:(\w+)""".toRegex().find(str)?.groupValues?.getOrNull(1)
             str.contains("@build") -> "build"
-            str.contains("@plan") -> "plan"
-            else -> null
+            else -> "plan" // Default to using the plan agent
         }
     }
 
