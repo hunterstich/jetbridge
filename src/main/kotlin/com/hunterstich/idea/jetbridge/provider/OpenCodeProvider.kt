@@ -168,6 +168,7 @@ class OpenCodeProvider : Provider {
         JetbridgeSettings.instance.state.openCodeLastAddress = server.address
         JetbridgeSettings.instance.state.openCodeLastSessionId = session.id
 
+        OpenCodeApi.selectSession(server.address, session.id)
         sseJob?.cancel()
         sseJob = scope.launch {
             OpenCodeApi.getEventsFlow(server.address).collect { event ->

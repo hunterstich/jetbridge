@@ -51,9 +51,10 @@ object OpenCodeApi {
             agent = agent,
             parts = listOf(MessageParts(text = prompt, type = "text"))
         )
-        println("sendPromptAsync. prompt:$prompt")
-        val messageJson = Json.encodeToString(message)
-        println("sending messageJson:$messageJson")
+        val messageJson = Json.encodeToString(
+            serializer = Message.serializer(),
+            value = message
+        )
         val request = HttpRequest.newBuilder()
             .uri(URI.create("http://$address/session/$sessionId/prompt_async"))
             .setHeader("Content-Type", "application/json")
@@ -74,6 +75,22 @@ object OpenCodeApi {
         return runCatching {
             val body = client.send(request, HttpResponse.BodyHandlers.ofString()).body()
             json.decodeFromString(body)
+        }
+    }
+
+    fun selectSession(address: String, sessionId: String): Result<Boolean> {
+        val bodyJson = Json.encodeToString(
+            serializer = SessionId.serializer(),
+            value = SessionId(sessionId)
+        )
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create("http://$address/tui/select-session"))
+            .setHeader("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(bodyJson))
+            .build()
+        return runCatching {
+            val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+            response.statusCode() in 200 .. 299
         }
     }
 
@@ -230,6 +247,11 @@ object OpenCodeApi {
     data class MessageParts(
         val text: String,
         val type: String,
+    )
+
+    @Serializable
+    data class SessionId(
+        val sessionID: String
     )
 }
 
