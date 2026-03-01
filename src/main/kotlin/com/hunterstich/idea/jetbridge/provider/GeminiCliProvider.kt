@@ -30,6 +30,9 @@ class GeminiCliProvider : Provider {
     override val connectionDesc: String
         get() = tmuxSessionName
 
+    override val isConnected: Boolean
+        get() = hasTmuxSession(tmuxSessionName)
+
     override fun reconnect(projectPath: String?) {
         if (hasTmuxSession(tmuxSessionName)) {
             scope.launch {

@@ -22,7 +22,6 @@ class OpenCodeProvider : Provider {
 
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    private var isConnected = false
     private var server: OpenCodeApi.Server? = null
     private var session: OpenCodeApi.Session? = null
     private var sseJob: Job? = null
@@ -30,6 +29,9 @@ class OpenCodeProvider : Provider {
     override val displayName: String = "opencode"
     override val connectionDesc: String
         get() = session?.title ?: "none"
+
+    override val isConnected: Boolean
+        get() = server != null && session != null && sseJob?.isActive == true
 
     override fun reconnect(projectPath: String?) {
         scope.launch {
@@ -163,7 +165,6 @@ class OpenCodeProvider : Provider {
     fun connect(server: OpenCodeApi.Server, session: OpenCodeApi.Session) {
         this.server = server
         this.session = session
-        this.isConnected = true
         JetbridgeSettings.instance.state.openCodeLastAddress = server.address
         JetbridgeSettings.instance.state.openCodeLastSessionId = session.id
 
@@ -174,7 +175,8 @@ class OpenCodeProvider : Provider {
                 when (event.type) {
                     "server.instance.disposed" -> {
                         cancel()
-                        isConnected = false
+                        this@OpenCodeProvider.server = null
+                        this@OpenCodeProvider.session = null
                     }
                     "question.asked" -> {
                         Bus.emit(ProviderEvent.Message("Jetbridge: OpenCode asked a question"))

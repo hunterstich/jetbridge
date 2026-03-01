@@ -12,6 +12,8 @@ interface Provider {
     /** Short connection summary used in status text (for example host, port, or session id). */
     val connectionDesc: String
 
+    val isConnected: Boolean
+
     /**
      * Attempt to restore the provider's previous connection state.
      *

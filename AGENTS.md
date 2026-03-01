@@ -3,8 +3,8 @@
 ## Project overview
 
 jetbridge is an IntelliJ IDEA / Android Studio plugin written in **pure Kotlin** that
-provides IDE actions for interacting with AI code assistants (OpenCode) directly from
-the editor. It communicates with a running OpenCode instance via HTTP REST and SSE.
+provides IDE actions for interacting with agentic coding harnesses (OpenCode, gemini-cli) 
+directly from the editor. 
 
 - **Plugin ID:** `com.hunterstich.idea.jetbridge`
 - **Root package:** `com.hunterstich.idea.jetbridge`
@@ -43,55 +43,9 @@ the editor. It communicates with a running OpenCode instance via HTTP REST and S
 ./gradlew verifyPlugin
 ```
 
-There is no linter or formatter configured. The project uses `kotlin.code.style=official`
-in `gradle.properties`, which tells IntelliJ to use the official Kotlin code style.
-There is no CI/CD pipeline.
-
-## Project structure
-
-```
-src/main/kotlin/com/hunterstich/idea/jetbridge/
-  Jetbridge.kt                  # ProjectActivity: startup, event bus listener, notifications
-  JetbridgePromptAction.kt      # AnAction subclasses: PromptAction and AskAction
-  PromptDialog.kt               # A multi-line vim-enabled prompt dialog
-  Macros.kt                     # String extension functions for macro expansion
-  provider/
-    Provider.kt                 # Provider interface, ProviderEvent sealed class, Bus object
-    OpenCodeProvider.kt          # HTTP + SSE communication with OpenCode
-    GeminiCliProvider.kt         # Placeholder (commented-out) tmux-based provider
-
-src/test/kotlin/com/hunterstich/idea/jetbridge/
-  OpenCodeProviderTest.kt        # Unit tests
-
-src/main/resources/META-INF/
-  plugin.xml                     # Plugin descriptor (actions, extensions, dependencies)
-```
-
-## Code style guidelines
-
-### Language and formatting
-
-- Pure Kotlin; no Java source files.
-- 4-space indentation, no tabs.
-- Opening braces on the same line (K&R style).
-- Trailing commas in multi-line parameter lists and collections.
-- Lines up to ~120 characters; no strict enforcement.
-- Single blank line between functions; double blank lines acceptable between classes.
-
-### Naming conventions
-
-| Element              | Style       | Example                                    |
-|----------------------|-------------|---------------------------------------------|
-| Classes / objects    | PascalCase  | `OpenCodeProvider`, `Bus`                   |
-| Interfaces           | PascalCase, no `I` prefix | `Provider`                     |
-| Sealed subclasses    | PascalCase  | `ProviderEvent.Status`                      |
-| Functions            | camelCase   | `ensureConnected()`, `sendPromptAsync()`    |
-| Extension functions  | camelCase   | `String.expandInlineMacros()`               |
-| Variables/properties | camelCase   | `serverAddress`, `isConnected`              |
-| Backing fields       | `_` prefix  | `_messages` backing `messages`              |
-| Constants/top-level vals | camelCase (not SCREAMING_SNAKE) | `isDebug`          |
-| Files                | PascalCase, match primary class | `OpenCodeProvider.kt`       |
-| Packages             | all lowercase | `com.hunterstich.idea.jetbridge.provider` |
+### Code structure
+* `src/main/kotlin/com/hunterstich/idea/jetbridge/provider` Should be a pure kotlin, portable 
+  with no dependencies on the intellij platform
 
 ### Imports
 
