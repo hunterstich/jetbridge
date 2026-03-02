@@ -1,10 +1,5 @@
-package com.hunterstich.idea.jetbridge.provider
+package com.hunterstich.idea.jetbridge.core
 
-import com.hunterstich.idea.jetbridge.JetbridgeSettings
-import com.hunterstich.idea.jetbridge.cleanAllMacros
-import com.hunterstich.idea.jetbridge.expandInlineMacros
-import com.hunterstich.idea.jetbridge.provider.opencode.OpenCodeApi
-import com.hunterstich.idea.jetbridge.utils.ContextSnapshot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -26,7 +21,7 @@ class OpenCodeProvider : Provider {
     private var session: OpenCodeApi.Session? = null
     private var sseJob: Job? = null
 
-    override val displayName: String = "opencode"
+    override val displayName: String = AvailableProvider.OpenCode.displayName
     override val connectionDesc: String
         get() = session?.title ?: "none"
 
@@ -130,8 +125,8 @@ class OpenCodeProvider : Provider {
             val servers = OpenCodeApi.getServers()
             if (servers.isEmpty()) return false
 
-            val lastAddress = JetbridgeSettings.instance.state.openCodeLastAddress
-            val lastSessionId = JetbridgeSettings.instance.state.openCodeLastSessionId
+            val lastAddress = ConfigStore.config.openCodeLastAddress
+            val lastSessionId = ConfigStore.config.openCodeLastSessionId
             if (lastAddress != null && lastSessionId != null) {
                 val savedConnection = findSavedConnection(servers, lastAddress, lastSessionId)
                 if (savedConnection != null) {
@@ -164,9 +159,10 @@ class OpenCodeProvider : Provider {
     fun connect(server: OpenCodeApi.Server, session: OpenCodeApi.Session) {
         this.server = server
         this.session = session
-        JetbridgeSettings.instance.state.openCodeLastAddress = server.address
-        JetbridgeSettings.instance.state.openCodeLastSessionId = session.id
-
+        ConfigStore.config.apply {
+            openCodeLastAddress = server.address
+            openCodeLastSessionId = session.id
+        }
         OpenCodeApi.selectSession(server.address, session.id)
         sseJob?.cancel()
         sseJob = scope.launch {

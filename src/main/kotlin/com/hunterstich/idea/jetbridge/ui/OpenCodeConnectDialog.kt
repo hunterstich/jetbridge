@@ -1,5 +1,6 @@
-package com.hunterstich.idea.jetbridge.provider.opencode
+package com.hunterstich.idea.jetbridge.ui
 
+import com.hunterstich.idea.jetbridge.core.OpenCodeApi
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.ui.dsl.builder.panel
@@ -12,17 +13,16 @@ import java.awt.event.KeyEvent
 import javax.swing.DefaultComboBoxModel
 import javax.swing.JComponent
 
-object OpenCodeComponents {
+object OpenCodeConnectDialog {
 
-    data class ConnectDialogResult(
+    data class Result(
         val server: OpenCodeApi.Server,
         val session: OpenCodeApi.Session
     )
 
-    // @oc Add documentation to this method
-    fun showConnectDialog(
+    fun show(
         servers: List<OpenCodeApi.Server>
-    ): ConnectDialogResult? {
+    ): Result? {
         var selectedServer: OpenCodeApi.Server? = null
 
         val addressOptions = servers.map { it.address }.toTypedArray()
@@ -100,7 +100,7 @@ object OpenCodeComponents {
                 ?: (sessionCombo.editor.item as? String)
                 ?: return null
             val session = sessions.firstOrNull { it.title == sessionTitle } ?: return null
-            ConnectDialogResult(server, session)
+            Result(server, session)
         } else {
             null
         }

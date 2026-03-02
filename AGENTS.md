@@ -44,8 +44,8 @@ directly from the editor.
 ```
 
 ### Code structure
-* `src/main/kotlin/com/hunterstich/idea/jetbridge/provider` Should be a pure kotlin, portable 
-  with no dependencies on the intellij platform
+* `src/main/kotlin/com/hunterstich/idea/jetbridge/core` Should be a pure kotlin, portable package
+  with no dependencies on the intellij plugin platform
 
 ### Imports
 

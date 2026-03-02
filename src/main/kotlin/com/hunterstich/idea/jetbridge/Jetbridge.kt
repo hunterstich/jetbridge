@@ -1,79 +1,70 @@
 package com.hunterstich.idea.jetbridge
 
-import com.hunterstich.idea.jetbridge.provider.Bus
-import com.hunterstich.idea.jetbridge.provider.ProviderEvent
-import com.intellij.notification.NotificationGroupManager
+import com.hunterstich.idea.jetbridge.core.Bus
+import com.hunterstich.idea.jetbridge.core.ConfigStore
+import com.hunterstich.idea.jetbridge.core.ProviderEvent
+import com.hunterstich.idea.jetbridge.ui.showNotification
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private val isDebug = true
+private val scope = CoroutineScope(Dispatchers.IO)
 
 class Jetbridge : ProjectActivity {
 
-    private val scope = CoroutineScope(Dispatchers.IO)
-
     override suspend fun execute(project: Project) {
         ApplicationManager.getApplication().invokeLater {
-            // Listen for messages from long running provider tasks
-            scope.launch {
-                Bus.messages.collect { msg ->
-                    when (msg) {
-                        is ProviderEvent.Status -> {
-                            if (isDebug) {
-                                withContext(Dispatchers.Main) {
-                                    scope.showNotification(project, msg.message)
-                                }
-                            }
-                        }
-                        is ProviderEvent.Message -> {
-                            withContext(Dispatchers.Main) {
-                                scope.showNotification(project, msg.message)
-                            }
-                        }
-                        is ProviderEvent.Error -> {
-                            withContext(Dispatchers.Main) {
-                                scope.showNotification(
-                                    project,
-                                    msg.error,
-                                    NotificationType.ERROR,
-                                    duration = if (msg.indefinite) null else 3000L
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            // Initialize the configuration store
+            val settingsInstance = ApplicationManager
+                .getApplication()
+                .getService(JetbridgeSettings::class.java)
+            ConfigStore.initialize(settingsInstance.state)
 
-            scope.launch {
-                JetbridgeProviderManager.provider.reconnect(project.basePath)
-            }
+            // Listen for messages from long running provider tasks
+            attachBus(project)
+
+            // Attach to the most recently connected provider
+            scope.launch { ConfigStore.provider.reconnect(project.basePath) }
         }
     }
 }
 
-private fun CoroutineScope.showNotification(
-    project: Project,
-    message: String,
-    type: NotificationType = NotificationType.INFORMATION,
-    duration: Long? = 3000L,
-) {
-    val notif = NotificationGroupManager.getInstance()
-        .getNotificationGroup("Jetbridge notifications")
-        .createNotification(message, type).apply {
-            isRemoveWhenExpired = duration != null
-        }
-    notif.notify(project)
-    if (duration != null) {
-        launch {
-            delay(duration)
-            notif.expire()
+/**
+ * Listen for messages on the event bus and surface them as Intellij notifications.
+ */
+private fun attachBus(project: Project) {
+    scope.launch {
+        Bus.messages.collect { msg ->
+            when (msg) {
+                is ProviderEvent.Status -> {
+                    if (isDebug) {
+                        withContext(Dispatchers.Main) {
+                            scope.showNotification(project, msg.message)
+                        }
+                    }
+                }
+                is ProviderEvent.Message -> {
+                    withContext(Dispatchers.Main) {
+                        scope.showNotification(project, msg.message)
+                    }
+                }
+                is ProviderEvent.Error -> {
+                    withContext(Dispatchers.Main) {
+                        scope.showNotification(
+                            project,
+                            msg.error,
+                            NotificationType.ERROR,
+                            duration = if (msg.indefinite) null else 3000L
+                        )
+                    }
+                }
+            }
         }
     }
 }

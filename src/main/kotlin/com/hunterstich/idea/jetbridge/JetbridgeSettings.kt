@@ -1,26 +1,29 @@
 package com.hunterstich.idea.jetbridge
 
-import com.hunterstich.idea.jetbridge.provider.GeminiCliProvider
-import com.hunterstich.idea.jetbridge.provider.OpenCodeProvider
-import com.hunterstich.idea.jetbridge.provider.Provider
-import com.intellij.openapi.application.ApplicationManager
+import com.hunterstich.idea.jetbridge.core.AvailableProvider
+import com.hunterstich.idea.jetbridge.core.Config
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 
+/**
+ * Intellij persistent settings class.
+ *
+ * All access to settings should use [com.hunterstich.idea.jetbridge.core.ConfigStore] - the kotlin
+ * interface for this platform-level backer.
+ */
 @Service(Service.Level.APP)
 @State(
     name = "com.hunterstich.idea.jetbridge.JetbridgeSettings",
     storages = [Storage("jetbridge.xml")]
 )
-class JetbridgeSettings : PersistentStateComponent<JetbridgeSettings.State> {
-    class State {
-        var selectedProvider = JetbridgeProviderManager.AvailableProvider.OpenCode
-
+internal class JetbridgeSettings : PersistentStateComponent<JetbridgeSettings.State> {
+    class State : Config {
+        override var providerId = AvailableProvider.OpenCode.id
         /** OpenCode settings **/
-        var openCodeLastAddress: String? = null
-        var openCodeLastSessionId: String? = null
+        override var openCodeLastAddress: String? = null
+        override var openCodeLastSessionId: String? = null
     }
 
     private var myState = State()
@@ -30,38 +33,4 @@ class JetbridgeSettings : PersistentStateComponent<JetbridgeSettings.State> {
     override fun loadState(state: State) {
         myState = state
     }
-
-    companion object {
-        val instance: JetbridgeSettings
-            get() = ApplicationManager.getApplication().getService(JetbridgeSettings::class.java)
-    }
-}
-
-object JetbridgeProviderManager {
-    private var _provider: Provider? = null
-
-    enum class AvailableProvider(val displayName: String) {
-        OpenCode("opencode"),
-        GeminiCli("gemini-cli");
-
-        companion object {
-            fun fromDisplayName(displayName: String): AvailableProvider {
-                return when (displayName) {
-                    GeminiCli.displayName -> GeminiCli
-                    else -> OpenCode
-                }
-            }
-        }
-    }
-
-    val provider: Provider
-        get() {
-            when (JetbridgeSettings.instance.state.selectedProvider) {
-                AvailableProvider.OpenCode ->
-                    if (_provider !is OpenCodeProvider)  _provider = OpenCodeProvider()
-                AvailableProvider.GeminiCli ->
-                    if (_provider !is GeminiCliProvider) _provider = GeminiCliProvider()
-            }
-            return _provider!!
-        }
 }

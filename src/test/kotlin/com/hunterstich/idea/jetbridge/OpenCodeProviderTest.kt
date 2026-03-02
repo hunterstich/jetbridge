@@ -2,7 +2,6 @@ package com.hunterstich.idea.jetbridge
 
 import org.junit.Test
 import kotlin.test.assertEquals
-import kotlin.text.contains
 
 class OpenCodeProviderTest {
     @Test

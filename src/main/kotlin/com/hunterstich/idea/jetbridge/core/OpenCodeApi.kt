@@ -1,6 +1,5 @@
-package com.hunterstich.idea.jetbridge.provider.opencode
+package com.hunterstich.idea.jetbridge.core
 
-import com.intellij.util.io.awaitExit
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -51,7 +50,7 @@ object OpenCodeApi {
             agent = agent,
             parts = listOf(MessageParts(text = prompt, type = "text"))
         )
-        val messageJson = Json.encodeToString(
+        val messageJson = Json.Default.encodeToString(
             serializer = Message.serializer(),
             value = message
         )
@@ -79,7 +78,7 @@ object OpenCodeApi {
     }
 
     fun selectSession(address: String, sessionId: String): Result<Boolean> {
-        val bodyJson = Json.encodeToString(
+        val bodyJson = Json.Default.encodeToString(
             serializer = SessionId.serializer(),
             value = SessionId(sessionId)
         )
@@ -94,6 +93,7 @@ object OpenCodeApi {
         }
     }
 
+    @Suppress("UsePlatformProcessAwaitExit")
     suspend fun getServers(): List<Server> {
         // Find the process that was started with `opencode --port`
         val pids = mutableListOf<String>()
@@ -102,7 +102,7 @@ object OpenCodeApi {
                 .bufferedReader()
                 .lines()
                 .forEach { l -> pids.add(l) }
-            it.awaitExit()
+            it.waitFor()
         }
         if (pids.isEmpty()) return emptyList()
 
@@ -116,8 +116,7 @@ object OpenCodeApi {
                         .bufferedReader()
                         .lines()
                         .forEach { l -> lsofOutputs.add(l) }
-
-                    it.awaitExit()
+                    it.waitFor()
                 }
         }
 
@@ -254,4 +253,3 @@ object OpenCodeApi {
         val sessionID: String
     )
 }
-

@@ -1,6 +1,5 @@
-package com.hunterstich.idea.jetbridge.provider
+package com.hunterstich.idea.jetbridge.core
 
-import com.hunterstich.idea.jetbridge.utils.ContextSnapshot
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -35,6 +34,18 @@ interface Provider {
      *   selection state if focus changes before prompt expansion.
      */
     fun prompt(rawPrompt: String, snapshot: ContextSnapshot)
+}
+
+enum class AvailableProvider(val id: Int, val displayName: String) {
+    OpenCode(0, "opencode"),
+    GeminiCli(1, "gemini-cli");
+
+    companion object {
+        fun fromDisplayName(str: String): AvailableProvider = when (str) {
+            GeminiCli.displayName -> GeminiCli
+            else -> OpenCode
+        }
+    }
 }
 
 sealed class ProviderEvent {

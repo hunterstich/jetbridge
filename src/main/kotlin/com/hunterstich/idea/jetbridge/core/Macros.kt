@@ -1,10 +1,6 @@
-package com.hunterstich.idea.jetbridge
+package com.hunterstich.idea.jetbridge.core
 
-import com.hunterstich.idea.jetbridge.utils.ContextSnapshot
-import com.hunterstich.idea.jetbridge.utils.captureContextSnapshot
-import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.editor.Editor
-
+// TODO: Merge into one regex list?
 internal val allMacros = listOf(
     "@this",
     "@these",
@@ -26,21 +22,16 @@ fun String.expandInlineMacros(
 ): String {
     var result = this
     if ((result.contains("@this") || result.contains("@these")) && snapshot.filePath != null) {
-        var value = ""
-        ApplicationManager.getApplication().runReadAction {
-            val filePath = getRelativePath(snapshot.filePath, providerPath)
-            value = "@$filePath ${snapshot.selectionDesc}"
-        }
+        val filePath = getRelativePath(snapshot.filePath, providerPath)
+        val value = "@$filePath ${snapshot.selectionDesc}"
 
         result = result.replace("@this", value)
         result = result.replace("@these", value)
     }
 
     if (result.contains("@file") && snapshot.filePath != null) {
-        ApplicationManager.getApplication().runReadAction {
-            val filePath = getRelativePath(snapshot.filePath, providerPath)
-            result = result.replace("@file", "@$filePath")
-        }
+        val filePath = getRelativePath(snapshot.filePath, providerPath)
+        result = result.replace("@file", "@$filePath")
     }
 
     // TODO: Expand @buffer

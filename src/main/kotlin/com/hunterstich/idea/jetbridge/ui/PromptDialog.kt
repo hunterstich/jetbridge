@@ -1,6 +1,9 @@
-package com.hunterstich.idea.jetbridge
+package com.hunterstich.idea.jetbridge.ui
 
-import com.hunterstich.idea.jetbridge.provider.Provider
+import com.hunterstich.idea.jetbridge.core.ConfigStore
+import com.hunterstich.idea.jetbridge.core.Provider
+import com.hunterstich.idea.jetbridge.core.allMacroRegex
+import com.hunterstich.idea.jetbridge.core.allMacros
 import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CustomShortcutSet
@@ -53,7 +56,7 @@ import javax.swing.KeyStroke
 class PromptDialog(
     project: Project?,
     dialogTitle: String,
-    private val prepopulatedText: String,
+    prepopulatedText: String,
     private val provider: Provider,
 ) : DialogWrapper(project) {
 
@@ -65,6 +68,14 @@ class PromptDialog(
 
     val inputText: String
         get() = editorTextField.text
+
+    companion object {
+        fun show(project: Project?, title: String, prepopulatedText: String): String? {
+            val dialog = PromptDialog(project, title, prepopulatedText, ConfigStore.provider)
+            dialog.show()
+            return if (dialog.isOK) dialog.inputText else null
+        }
+    }
 
     init {
         title = dialogTitle

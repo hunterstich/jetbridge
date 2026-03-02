@@ -1,9 +1,5 @@
-package com.hunterstich.idea.jetbridge.provider
+package com.hunterstich.idea.jetbridge.core
 
-import com.hunterstich.idea.jetbridge.cleanAllMacros
-import com.hunterstich.idea.jetbridge.expandInlineMacros
-import com.hunterstich.idea.jetbridge.utils.ContextSnapshot
-import com.intellij.util.io.awaitExit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -26,7 +22,7 @@ class GeminiCliProvider : Provider {
     // TODO: Move into JetbridgeSetting and allow customization of tmux session name
     private val tmuxSessionName = "gemini-jetbridge"
 
-    override val displayName: String = "gemini-cli"
+    override val displayName: String = AvailableProvider.GeminiCli.displayName
     override val connectionDesc: String
         get() = tmuxSessionName
 
@@ -53,6 +49,7 @@ class GeminiCliProvider : Provider {
         }
     }
 
+    @Suppress("UsePlatformProcessAwaitExit")
     override fun prompt(rawPrompt: String, snapshot: ContextSnapshot) {
         scope.launch {
             try {
@@ -74,12 +71,12 @@ class GeminiCliProvider : Provider {
                 // Append to gemini
                 ProcessBuilder("tmux", "send-keys", "-t", tmuxSessionName, prompt)
                     .start()
-                    .awaitExit()
+                    .waitFor()
                 delay(100)
                 // Submit the prompt
                 ProcessBuilder("tmux", "send-keys", "-t", tmuxSessionName, "C-m")
                     .start()
-                    .awaitExit()
+                    .waitFor()
             } catch (e: Exception) {
                 e.printStackTrace()
                 Bus.emit(ProviderEvent.Error("Error sending prompt to tmux: ${e.message}"))
