@@ -60,17 +60,20 @@ class JetbridgeConnectOpenCodeAction : AnAction() {
             ConfigStore.config.providerId = AvailableProvider.OpenCode.id
         }
         val provider = ConfigStore.provider as OpenCodeProvider
+        launchOpenCodeConnectDialog(provider)
+    }
+}
 
-        CoroutineScope(Dispatchers.IO).launch {
-            val servers = OpenCodeApi.getServers()
-            withContext(Dispatchers.Main) {
-                val result = OpenCodeConnectDialog.show(
-                    servers = servers,
-                    initialAddress = ConfigStore.config.openCodeLastAddress,
-                    initialSessionId = ConfigStore.config.openCodeLastSessionId
-                ) ?: return@withContext
-                provider.connect(result.server, result.session)
-            }
+internal fun launchOpenCodeConnectDialog(provider: OpenCodeProvider) {
+    CoroutineScope(Dispatchers.IO).launch {
+        val servers = OpenCodeApi.getServers()
+        withContext(Dispatchers.Main) {
+            val result = OpenCodeConnectDialog.show(
+                servers = servers,
+                initialAddress = ConfigStore.config.openCodeLastAddress,
+                initialSessionId = ConfigStore.config.openCodeLastSessionId
+            ) ?: return@withContext
+            provider.connect(result.server, result.session)
         }
     }
 }

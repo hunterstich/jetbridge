@@ -1,9 +1,12 @@
 package com.hunterstich.idea.jetbridge.ui
 
 import com.hunterstich.idea.jetbridge.core.ConfigStore
+import com.hunterstich.idea.jetbridge.core.OpenCodeApi
+import com.hunterstich.idea.jetbridge.core.OpenCodeProvider
 import com.hunterstich.idea.jetbridge.core.Provider
 import com.hunterstich.idea.jetbridge.core.allMacroRegex
 import com.hunterstich.idea.jetbridge.core.allMacros
+import com.hunterstich.idea.jetbridge.launchOpenCodeConnectDialog
 import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CustomShortcutSet
@@ -24,6 +27,7 @@ import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.util.Disposer
 import com.intellij.testFramework.LightVirtualFile
 import com.intellij.ui.EditorTextField
+import com.intellij.ui.components.ActionLink
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
@@ -32,8 +36,13 @@ import com.maddyhome.idea.vim.api.injector
 import com.maddyhome.idea.vim.helper.inNormalMode
 import com.maddyhome.idea.vim.newapi.ij
 import com.maddyhome.idea.vim.newapi.vim
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.awt.BorderLayout
 import java.awt.Dimension
+import java.awt.FlowLayout
 import java.awt.Font
 import java.awt.KeyEventDispatcher
 import java.awt.KeyboardFocusManager
@@ -54,13 +63,14 @@ import javax.swing.KeyStroke
  * - IdeaVIM keybindings work if the user has `set ideavimsupport+=dialog` in their .ideavimrc.
  */
 class PromptDialog(
-    project: Project?,
+    private val project: Project?,
     dialogTitle: String,
     prepopulatedText: String,
     private val provider: Provider,
 ) : DialogWrapper(project) {
 
     private val centerPanel: JComponent
+    private val isProviderConnected: Boolean = provider.isConnected
     private val editorTextField: EditorTextField
 
     val vimPlugin = PluginManagerCore.getPlugin(PluginId.getId("IdeaVIM"))
@@ -91,7 +101,7 @@ class PromptDialog(
             /* document = */ document,
             /* project = */ project,
             /* fileType = */ null,
-            /* isViewer = */ false,
+            /* isViewer = */ !isProviderConnected,
             /* oneLineMode = */ false
         ).apply {
             preferredSize = Dimension(450, 150)
@@ -113,16 +123,18 @@ class PromptDialog(
                 // at the IntelliJ action layer (before the editor's default EnterAction).
                 // Shift+Enter is not matched by this shortcut, so it falls through to
                 // the default handler which inserts a newline.
-                val enterAction = object : DumbAwareAction() {
-                    override fun actionPerformed(e: AnActionEvent) {
-                        doOKAction()
+                if (isProviderConnected) {
+                    val enterAction = object : DumbAwareAction() {
+                        override fun actionPerformed(e: AnActionEvent) {
+                            doOKAction()
+                        }
                     }
+                    enterAction.registerCustomShortcutSet(
+                        CustomShortcutSet.fromString("ENTER"),
+                        editor.contentComponent,
+                        disposable,
+                    )
                 }
-                enterAction.registerCustomShortcutSet(
-                    CustomShortcutSet.fromString("ENTER"),
-                    editor.contentComponent,
-                    disposable,
-                )
                 highlightMacros(editor)
             }
         }
@@ -142,6 +154,7 @@ class PromptDialog(
         registerVimCommandShortcuts()
 
         init()
+        isOKActionEnabled = isProviderConnected
     }
 
     override fun createCenterPanel(): JComponent = centerPanel
@@ -208,8 +221,14 @@ class PromptDialog(
                 }
 
                 "wq" -> {
-                    commandLine.close(refocusOwningEditor = false, resetCaret = false)
-                    doOKAction()
+                    if (!isProviderConnected) {
+                        commandLine.close(refocusOwningEditor = false, resetCaret = false)
+                        doCancelAction()
+                    } else {
+                        commandLine.close(refocusOwningEditor = false, resetCaret = false)
+                        doOKAction()
+                    }
+
                     true
                 }
 
@@ -224,10 +243,31 @@ class PromptDialog(
     }
 
     private fun createHintLabel(): JComponent {
-        val hintText = "Connection: ${provider.displayName} - ${provider.connectionDesc}"
-        return JBLabel(hintText).apply {
-            foreground = UIUtil.getContextHelpForeground()
+        if (isProviderConnected) {
+            val hintText = "Connection: ${provider.displayName} - ${provider.connectionDesc}"
+            return JBLabel(hintText).apply {
+                foreground = UIUtil.getContextHelpForeground()
+                border = JBUI.Borders.emptyTop(6)
+            }
+        }
+
+        return JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
             border = JBUI.Borders.emptyTop(6)
+            add(JBLabel("Not connected. ").apply {
+                foreground = UIUtil.getContextHelpForeground()
+            })
+            add(ActionLink("Connect") {
+                connectProviderAction()
+            })
+        }
+    }
+
+    private fun connectProviderAction() {
+        // TODO: Add support for other providers
+        doCancelAction()
+        when (provider) {
+            is OpenCodeProvider -> launchOpenCodeConnectDialog(provider)
+            else -> { } // TODO: Add other providers
         }
     }
 
