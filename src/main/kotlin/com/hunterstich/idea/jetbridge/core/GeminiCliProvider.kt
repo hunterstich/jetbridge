@@ -50,16 +50,21 @@ class GeminiCliProvider : Provider {
     }
 
     @Suppress("UsePlatformProcessAwaitExit")
-    override fun prompt(rawPrompt: String, snapshot: ContextSnapshot) {
+    override fun prompt(rawPrompt: String, snapshot: ContextSnapshot, targetId: String?) {
         scope.launch {
             try {
-                if (!hasTmuxSession(tmuxSessionName)) {
-                    Bus.emit(ProviderEvent.Error(
-                        "No tmux session '$tmuxSessionName' found. Start one with: " +
-                                "tmux new-session -s $tmuxSessionName 'gemini'",
-                        indefinite = true
-                    ))
-                    return@launch
+                val targetSession = targetId ?: tmuxSessionName
+                if (!hasTmuxSession(targetSession)) {
+                    // Create the session if it doesn't exist
+                    // TODO: Should session creation also launch a shell?
+                    try {
+                        ProcessBuilder("tmux", "new-session", "-d", "-s", targetSession, "gemini")
+                            .start()
+                            .waitFor()
+                    } catch (e: Exception) {
+                        Bus.emit(ProviderEvent.Error("Unable to create tmux session: ${e.message}"))
+                        return@launch
+                    }
                 }
 
                 val projectPath = snapshot.projectPath ?: ""
@@ -69,12 +74,12 @@ class GeminiCliProvider : Provider {
                 prompt = prompt.cleanAllMacros()
 
                 // Append to gemini
-                ProcessBuilder("tmux", "send-keys", "-t", tmuxSessionName, prompt)
+                ProcessBuilder("tmux", "send-keys", "-t", targetSession, prompt)
                     .start()
                     .waitFor()
                 delay(100)
                 // Submit the prompt
-                ProcessBuilder("tmux", "send-keys", "-t", tmuxSessionName, "C-m")
+                ProcessBuilder("tmux", "send-keys", "-t", targetSession, "C-m")
                     .start()
                     .waitFor()
             } catch (e: Exception) {
@@ -82,6 +87,29 @@ class GeminiCliProvider : Provider {
                 Bus.emit(ProviderEvent.Error("Error sending prompt to tmux: ${e.message}"))
             }
         }
+    }
+
+    override suspend fun getAvailableTargets(): List<Target> {
+        return try {
+            val process = ProcessBuilder("tmux", "list-sessions", "-F", "#S").start()
+            val sessions = process.inputStream.bufferedReader().readLines()
+            sessions.mapIndexed { index, name ->
+                Target(
+                    id = name,
+                    label = name,
+                    description = "tmux session",
+                    provider = AvailableProvider.GeminiCli,
+                    index = index + 1
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    override suspend fun getTarget(idOrIndex: String): Target? {
+        val targets = getAvailableTargets()
+        return targets.find { it.id == idOrIndex || it.index.toString() == idOrIndex }
     }
 
     private fun hasTmuxSession(name: String): Boolean {

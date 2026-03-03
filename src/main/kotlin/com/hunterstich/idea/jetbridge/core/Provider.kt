@@ -28,22 +28,50 @@ interface Provider {
      * checks/retries, and dispatching errors through [Bus] as needed.
      *
      * @param rawPrompt The raw prompt string captured from the UI before provider-specific parsing.
-     * @param editor The active editor used for contextual macros (for example, current file or
-     *   selection).
      * @param snapshot Editor context captured at action invocation time. This preserves caret and
      *   selection state if focus changes before prompt expansion.
+     * @param targetId Optional specific connection/session identifier to target. If null, use the
+     *   last used or default connection.
      */
-    fun prompt(rawPrompt: String, snapshot: ContextSnapshot)
+    fun prompt(rawPrompt: String, snapshot: ContextSnapshot, targetId: String? = null)
+
+    /**
+     * Get a list of available connection targets (e.g., sessions, tmux windows) for this provider.
+     */
+    suspend fun getAvailableTargets(): List<Target>
+
+    /**
+     * Resolve a target by its unique ID or its stable index (1, 2, 3...).
+     */
+    suspend fun getTarget(idOrIndex: String): Target?
 }
 
-enum class AvailableProvider(val id: Int, val displayName: String) {
-    OpenCode(0, "opencode"),
-    GeminiCli(1, "gemini-cli");
+/**
+ * Represents a specific connection point within a provider, such as an OpenCode session
+ * or a specific tmux session for gemini-cli.
+ */
+data class Target(
+    val id: String,
+    val label: String,
+    val description: String,
+    val provider: AvailableProvider,
+    val index: Int? = null
+)
+
+enum class AvailableProvider(val id: Int, val displayName: String, val handle: String) {
+    OpenCode(0, "opencode", "oc"),
+    GeminiCli(1, "gemini-cli", "gem");
 
     companion object {
         fun fromDisplayName(str: String): AvailableProvider = when (str) {
             GeminiCli.displayName -> GeminiCli
             else -> OpenCode
+        }
+
+        fun fromHandle(handle: String): AvailableProvider? = when (handle) {
+            OpenCode.handle -> OpenCode
+            GeminiCli.handle -> GeminiCli
+            else -> null
         }
     }
 }

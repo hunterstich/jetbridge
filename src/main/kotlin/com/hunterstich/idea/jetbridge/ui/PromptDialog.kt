@@ -1,12 +1,18 @@
 package com.hunterstich.idea.jetbridge.ui
 
+import com.hunterstich.idea.jetbridge.core.AvailableProvider
 import com.hunterstich.idea.jetbridge.core.ConfigStore
 import com.hunterstich.idea.jetbridge.core.OpenCodeApi
 import com.hunterstich.idea.jetbridge.core.OpenCodeProvider
 import com.hunterstich.idea.jetbridge.core.Provider
+import com.hunterstich.idea.jetbridge.core.Target
 import com.hunterstich.idea.jetbridge.core.allMacroRegex
 import com.hunterstich.idea.jetbridge.core.allMacros
 import com.hunterstich.idea.jetbridge.launchOpenCodeConnectDialog
+import com.intellij.codeInsight.completion.CompletionParameters
+import com.intellij.codeInsight.completion.CompletionResultSet
+import com.intellij.codeInsight.lookup.LookupElement
+import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CustomShortcutSet
@@ -27,6 +33,8 @@ import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.util.Disposer
 import com.intellij.testFramework.LightVirtualFile
 import com.intellij.ui.EditorTextField
+import com.intellij.ui.TextFieldWithAutoCompletion
+import com.intellij.ui.TextFieldWithAutoCompletionListProvider
 import com.intellij.ui.components.ActionLink
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
@@ -39,6 +47,7 @@ import com.maddyhome.idea.vim.newapi.vim
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.awt.BorderLayout
 import java.awt.Dimension
@@ -54,12 +63,13 @@ import javax.swing.KeyStroke
 
 
 /**
- * A multi-line prompt dialog with macro highlighting.
+ * A multi-line prompt dialog with macro highlighting and autocomplete.
  *
  * - Enter submits the dialog (OK).
  * - Shift+Enter inserts a newline.
  * - Escape closes the dialog.
  * - Macros like @this, @file, etc. are highlighted as the user types.
+ * - Autocomplete for @oc:1, @gem, etc.
  * - IdeaVIM keybindings work if the user has `set ideavimsupport+=dialog` in their .ideavimrc.
  */
 class PromptDialog(
@@ -72,6 +82,7 @@ class PromptDialog(
     private val centerPanel: JComponent
     private val isProviderConnected: Boolean = provider.isConnected
     private val editorTextField: EditorTextField
+    private val hintLabel: JBLabel = JBLabel("")
 
     val vimPlugin = PluginManagerCore.getPlugin(PluginId.getId("IdeaVIM"))
     val vimEnabled = vimPlugin != null && vimPlugin.isEnabled()
@@ -97,13 +108,16 @@ class PromptDialog(
             val virtualFile = LightVirtualFile("Dummy.txt", prepopulatedText)
             FileDocumentManagerImpl.registerDocument(document, virtualFile)
         }
-        editorTextField = EditorTextField(
-            /* document = */ document,
-            /* project = */ project,
-            /* fileType = */ null,
-            /* isViewer = */ !isProviderConnected,
-            /* oneLineMode = */ false
+
+        val completionProvider = MacroCompletionProvider()
+        editorTextField = TextFieldWithAutoCompletion(
+            project,
+            completionProvider,
+            false,
+            prepopulatedText
         ).apply {
+            // Re-use our document if possible, though TextFieldWithAutoCompletion creates its own.
+            // For now, let's just let it create its own and we'll apply settings.
             preferredSize = Dimension(450, 150)
             setFontInheritedFromLAF(false)
             addSettingsProvider { editor ->
@@ -139,22 +153,24 @@ class PromptDialog(
             }
         }
 
-        document.addDocumentListener(object : DocumentListener {
+        editorTextField.document.addDocumentListener(object : DocumentListener {
             override fun documentChanged(event: DocumentEvent) {
                 val editor = editorTextField.editor ?: return
                 highlightMacros(editor)
+                updateTargetLabel()
             }
         }, this.disposable)
 
         centerPanel = JPanel(BorderLayout()).apply {
             add(editorTextField, BorderLayout.CENTER)
-            add(createHintLabel(), BorderLayout.SOUTH)
+            add(createHintContainer(), BorderLayout.SOUTH)
         }
 
         registerVimCommandShortcuts()
 
         init()
         isOKActionEnabled = isProviderConnected
+        updateTargetLabel()
     }
 
     override fun createCenterPanel(): JComponent = centerPanel
@@ -242,10 +258,9 @@ class PromptDialog(
         }
     }
 
-    private fun createHintLabel(): JComponent {
+    private fun createHintContainer(): JComponent {
         if (isProviderConnected) {
-            val hintText = "Connection: ${provider.displayName} - ${provider.connectionDesc}"
-            return JBLabel(hintText).apply {
+            return hintLabel.apply {
                 foreground = UIUtil.getContextHelpForeground()
                 border = JBUI.Borders.emptyTop(6)
             }
@@ -259,6 +274,40 @@ class PromptDialog(
             add(ActionLink("Connect") {
                 connectProviderAction()
             })
+        }
+    }
+
+    private fun updateTargetLabel() {
+        val text = editorTextField.text
+        val routingMatch = """@(oc|gem)(:([a-zA-Z0-9.\-/]+))?""".toRegex().find(text)
+
+        CoroutineScope(Dispatchers.IO).launch {
+            val (providerId, targetIdOrIndex) = if (routingMatch != null) {
+                val handle = routingMatch.groupValues[1]
+                val idOrIndex = routingMatch.groupValues[3].takeIf { it.isNotEmpty() }
+                AvailableProvider.fromHandle(handle)?.id to idOrIndex
+            } else {
+                ConfigStore.config.providerId to null
+            }
+
+            if (providerId == null) return@launch
+
+            val targetProvider = ConfigStore.getProvider(providerId)
+            val target = if (targetIdOrIndex != null) {
+                targetProvider.getTarget(targetIdOrIndex)
+            } else {
+                null
+            }
+
+            withContext(Dispatchers.Main) {
+                if (routingMatch != null && targetIdOrIndex != null && target == null) {
+                    hintLabel.text = "Targeting: ${targetProvider.displayName} [New session will be created]"
+                } else {
+                    val labelText = target?.let { "${it.index?.let { i -> "$i. " } ?: ""}${it.label}" }
+                        ?: targetProvider.connectionDesc
+                    hintLabel.text = "Targeting: ${targetProvider.displayName} [$labelText]"
+                }
+            }
         }
     }
 
@@ -316,5 +365,50 @@ class PromptDialog(
             }
             fontType = Font.BOLD
         }
+    }
+}
+
+private class MacroCompletionProvider : TextFieldWithAutoCompletionListProvider<String>(emptyList()) {
+    override fun getLookupString(item: String): String = item
+
+    override fun getItems(
+        prefix: String?,
+        cached: Boolean,
+        parameters: CompletionParameters
+    ): Collection<String> {
+        val currentPrefix = prefix ?: ""
+        if (!currentPrefix.startsWith("@")) return emptyList()
+
+        val macroPart = currentPrefix.substring(1)
+        if (macroPart.startsWith("oc:") || macroPart.startsWith("gem:")) {
+            val handle = macroPart.substringBefore(":")
+            val provider = AvailableProvider.fromHandle(handle)?.let { ConfigStore.getProvider(it.id) }
+            if (provider != null) {
+                return runBlocking {
+                    provider.getAvailableTargets().map { "@$handle:${it.index ?: it.id}" }
+                }
+            }
+        }
+
+        val macros = allMacros.toMutableList()
+        AvailableProvider.entries.forEach { macros.add("@${it.handle}:") }
+        return macros.filter { it.startsWith(currentPrefix) }
+    }
+
+    override fun createLookupBuilder(item: String): LookupElementBuilder {
+        var builder = super.createLookupBuilder(item)
+        if (item.contains(":")) {
+            val handle = item.substring(1, item.indexOf(":"))
+            val idOrIndex = item.substring(item.indexOf(":") + 1)
+            val provider = AvailableProvider.fromHandle(handle)?.let { ConfigStore.getProvider(it.id) }
+            if (provider != null && idOrIndex.isNotEmpty()) {
+                val target = runBlocking { provider.getTarget(idOrIndex) }
+                if (target != null) {
+                    builder = builder.withPresentableText("${target.index}. ${target.label}")
+                        .withTailText("  ${target.description}", true)
+                }
+            }
+        }
+        return builder
     }
 }

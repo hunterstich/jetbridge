@@ -2,6 +2,7 @@ package com.hunterstich.idea.jetbridge
 
 import com.hunterstich.idea.jetbridge.core.AvailableProvider
 import com.hunterstich.idea.jetbridge.core.ConfigStore
+import com.hunterstich.idea.jetbridge.core.Dispatcher
 import com.hunterstich.idea.jetbridge.core.OpenCodeApi
 import com.hunterstich.idea.jetbridge.core.OpenCodeProvider
 import com.hunterstich.idea.jetbridge.ui.OpenCodeConnectDialog
@@ -26,10 +27,10 @@ class JetbridgePromptAction : AnAction() {
         val contextSnapshot = editor.captureContextSnapshot(event)
         val rawInput = PromptDialog.show(
             event.project,
-            "${ConfigStore.provider.displayName} prompt:",
+            "Jetbridge prompt:",
             ""
         ) ?: return
-        ConfigStore.provider.prompt(rawInput, contextSnapshot)
+        Dispatcher.dispatch(rawInput, contextSnapshot)
     }
 }
 
@@ -42,10 +43,10 @@ class JetbridgeAskAction : AnAction() {
         val contextSnapshot = editor.captureContextSnapshot(event)
         val rawInput = PromptDialog.show(
             event.project,
-            "${ConfigStore.provider.displayName} prompt:",
+            "Jetbridge prompt:",
             "@this "
         ) ?: return
-        ConfigStore.provider.prompt(rawInput, contextSnapshot)
+        Dispatcher.dispatch(rawInput, contextSnapshot)
     }
 }
 

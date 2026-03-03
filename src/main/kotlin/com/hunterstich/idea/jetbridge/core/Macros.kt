@@ -13,7 +13,9 @@ internal val allMacros = listOf(
 
 internal val allMacroRegex = listOf(
     // Match for any agent specifier
-    """@a:\w+""".toRegex()
+    """@a:\w+""".toRegex(),
+    // Match for provider routing @oc:1, @gem:name, etc.
+    """@(oc|gem)(:[a-zA-Z0-9.\-/:_]+)?""".toRegex(),
 )
 
 fun String.expandInlineMacros(

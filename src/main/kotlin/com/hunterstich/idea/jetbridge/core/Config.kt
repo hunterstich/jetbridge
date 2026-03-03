@@ -15,17 +15,20 @@ object ConfigStore {
         this.config = config
     }
 
-    private var _provider: Provider? = null
+    private val providers = mutableMapOf<Int, Provider>()
+
     val provider: Provider
-        get() {
-            when (config?.providerId) {
-                AvailableProvider.GeminiCli.id ->
-                    if (_provider !is GeminiCliProvider) _provider = GeminiCliProvider()
-                else ->
-                    if (_provider !is OpenCodeProvider)  _provider = OpenCodeProvider()
+        get() = getProvider(config.providerId)
+
+    fun getProvider(id: Int): Provider {
+        return providers.getOrPut(id) {
+            when (id) {
+                AvailableProvider.GeminiCli.id -> GeminiCliProvider()
+                else -> OpenCodeProvider()
             }
-            return _provider!!
         }
+    }
+
 }
 
 private class TmpConfig(

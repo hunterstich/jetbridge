@@ -22,8 +22,11 @@ class MacrosTest {
     }
 
     @Test
-    fun cleanAllMacros_shouldNotAffectSourceAtSign() {
-        val prompt = "@README.md"
-        assertEquals("@README.md", prompt.cleanAllMacros())
+    fun cleanAllMacros_shouldCleanRoutingMacros() {
+        val prompt = "@oc:1 @file fix this"
+        assertEquals("fix this", prompt.cleanAllMacros())
+
+        val prompt2 = "@gem:my-tmux help"
+        assertEquals("help", prompt2.cleanAllMacros())
     }
-}
+    }

@@ -36,10 +36,26 @@ class OpenCodeProvider : Provider {
         }
     }
 
-    override fun prompt(rawPrompt: String, snapshot: ContextSnapshot) {
+    override fun prompt(rawPrompt: String, snapshot: ContextSnapshot, targetId: String?) {
         scope.launch {
             try {
                 val filePath: String? = snapshot.filePath
+                if (targetId != null) {
+                    val parts = targetId.split("/")
+                    if (parts.size == 2) {
+                        val address = parts[0]
+                        val sessionId = parts[1]
+                        if (server?.address != address || session?.id != sessionId) {
+                            val servers = OpenCodeApi.getServers()
+                            val targetServer = servers.find { it.address == address }
+                            val targetSession = OpenCodeApi.getSessions(address).getOrNull()?.find { it.id == sessionId }
+                            if (targetServer != null && targetSession != null) {
+                                connect(targetServer, targetSession)
+                            }
+                        }
+                    }
+                }
+
                 if (!ensureConnected(filePath)) {
                     Bus.emit(
                         ProviderEvent.Error("No running opencode instance found in project path")
@@ -78,6 +94,30 @@ class OpenCodeProvider : Provider {
                 cancel()
             }
         }
+    }
+
+    override suspend fun getAvailableTargets(): List<Target> {
+        val servers = OpenCodeApi.getServers()
+        val sessionsWithMeta = servers.flatMap { server ->
+            OpenCodeApi.getSessions(server.address).getOrNull()?.map { session ->
+                session to server.address
+            } ?: emptyList()
+        }.sortedByDescending { it.first.time.updated }
+
+        return sessionsWithMeta.mapIndexed { index, (session, address) ->
+            Target(
+                id = "$address/${session.id}",
+                label = session.title,
+                description = address,
+                provider = AvailableProvider.OpenCode,
+                index = index + 1
+            )
+        }
+    }
+
+    override suspend fun getTarget(idOrIndex: String): Target? {
+        val targets = getAvailableTargets()
+        return targets.find { it.id == idOrIndex || it.index.toString() == idOrIndex }
     }
 
     /**
