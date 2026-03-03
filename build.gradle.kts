@@ -24,7 +24,7 @@ dependencies {
 
     intellijPlatform {
 //        androidStudio("2025.3.1.5")
-        intellijIdeaCommunity("2025.1")
+        intellijIdea("2025.3.3")
         pluginVerifier()
 
         // TODO: Remove. Not actually dependent on ideavim but is handy for testing
