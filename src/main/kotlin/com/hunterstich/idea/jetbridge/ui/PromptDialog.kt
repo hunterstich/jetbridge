@@ -2,20 +2,18 @@ package com.hunterstich.idea.jetbridge.ui
 
 import com.hunterstich.idea.jetbridge.core.AvailableProvider
 import com.hunterstich.idea.jetbridge.core.ConfigStore
-import com.hunterstich.idea.jetbridge.core.OpenCodeApi
-import com.hunterstich.idea.jetbridge.core.OpenCodeProvider
 import com.hunterstich.idea.jetbridge.core.Provider
-import com.hunterstich.idea.jetbridge.core.Target
 import com.hunterstich.idea.jetbridge.core.allMacroRegex
 import com.hunterstich.idea.jetbridge.core.allMacros
-import com.hunterstich.idea.jetbridge.launchOpenCodeConnectDialog
+import com.intellij.codeInsight.AutoPopupController
 import com.intellij.codeInsight.completion.CompletionParameters
-import com.intellij.codeInsight.completion.CompletionResultSet
-import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
+import com.intellij.codeInsight.lookup.LookupManager
 import com.intellij.ide.plugins.PluginManagerCore
+import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CustomShortcutSet
+import com.intellij.openapi.actionSystem.IdeActions
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
@@ -35,7 +33,6 @@ import com.intellij.testFramework.LightVirtualFile
 import com.intellij.ui.EditorTextField
 import com.intellij.ui.TextFieldWithAutoCompletion
 import com.intellij.ui.TextFieldWithAutoCompletionListProvider
-import com.intellij.ui.components.ActionLink
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
@@ -51,7 +48,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.awt.BorderLayout
 import java.awt.Dimension
-import java.awt.FlowLayout
 import java.awt.Font
 import java.awt.KeyEventDispatcher
 import java.awt.KeyboardFocusManager
@@ -113,7 +109,7 @@ class PromptDialog(
         editorTextField = TextFieldWithAutoCompletion(
             project,
             completionProvider,
-            false,
+            true, // showCompletionPopup = true
             prepopulatedText
         ).apply {
             // Re-use our document if possible, though TextFieldWithAutoCompletion creates its own.
@@ -140,6 +136,16 @@ class PromptDialog(
                 if (isProviderConnected) {
                     val enterAction = object : DumbAwareAction() {
                         override fun actionPerformed(e: AnActionEvent) {
+                            val editor = editorTextField.editor
+                            val lookup =
+                                if (editor != null) LookupManager.getActiveLookup(editor) else null
+                            if (lookup != null) {
+                                // Trigger the standard "choose item" action
+                                ActionManager.getInstance()
+                                    .getAction(IdeActions.ACTION_CHOOSE_LOOKUP_ITEM)
+                                    ?.actionPerformed(e)
+                                return
+                            }
                             doOKAction()
                         }
                     }
@@ -158,6 +164,12 @@ class PromptDialog(
                 val editor = editorTextField.editor ?: return
                 highlightMacros(editor)
                 updateTargetLabel()
+
+                // Make sure the auto-complete popup shows as soon as @ or : are typed
+                val newFragment = event.newFragment.toString()
+                if (newFragment.contains(":") || newFragment.contains("@")) {
+                    AutoPopupController.getInstance(project!!).scheduleAutoPopup(editor)
+                }
             }
         }, this.disposable)
 
@@ -259,27 +271,20 @@ class PromptDialog(
     }
 
     private fun createHintContainer(): JComponent {
-        if (isProviderConnected) {
-            return hintLabel.apply {
-                foreground = UIUtil.getContextHelpForeground()
-                border = JBUI.Borders.emptyTop(6)
-            }
-        }
-
-        return JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
+        return hintLabel.apply {
+            foreground = UIUtil.getContextHelpForeground()
             border = JBUI.Borders.emptyTop(6)
-            add(JBLabel("Not connected. ").apply {
-                foreground = UIUtil.getContextHelpForeground()
-            })
-            add(ActionLink("Connect") {
-                connectProviderAction()
-            })
+            text = if (isProviderConnected) {
+                "Target: [${provider.connectionDesc}]"
+            } else {
+                "Specify a target with @oc (opencode) or @gem (gemini-cli)"
+            }
         }
     }
 
     private fun updateTargetLabel() {
         val text = editorTextField.text
-        val routingMatch = """@(oc|gem)(:([a-zA-Z0-9.\-/]+))?""".toRegex().find(text)
+        val routingMatch = """@(oc|gem)(:([a-zA-Z0-9.\-/:_]+))?""".toRegex().find(text)
 
         CoroutineScope(Dispatchers.IO).launch {
             val (providerId, targetIdOrIndex) = if (routingMatch != null) {
@@ -301,22 +306,13 @@ class PromptDialog(
 
             withContext(Dispatchers.Main) {
                 if (routingMatch != null && targetIdOrIndex != null && target == null) {
-                    hintLabel.text = "Targeting: ${targetProvider.displayName} [New session will be created]"
+                    hintLabel.text =
+                        "Target: ${targetProvider.displayName} [New session will be created]"
                 } else {
-                    val labelText = target?.let { "${it.index?.let { i -> "$i. " } ?: ""}${it.label}" }
-                        ?: targetProvider.connectionDesc
-                    hintLabel.text = "Targeting: ${targetProvider.displayName} [$labelText]"
+                    val labelText = target?.let { it.label } ?: targetProvider.connectionDesc
+                    hintLabel.text = "Target: ${targetProvider.displayName} [$labelText]"
                 }
             }
-        }
-    }
-
-    private fun connectProviderAction() {
-        // TODO: Add support for other providers
-        doCancelAction()
-        when (provider) {
-            is OpenCodeProvider -> launchOpenCodeConnectDialog(provider)
-            else -> { } // TODO: Add other providers
         }
     }
 
@@ -368,8 +364,17 @@ class PromptDialog(
     }
 }
 
-private class MacroCompletionProvider : TextFieldWithAutoCompletionListProvider<String>(emptyList()) {
+private class MacroCompletionProvider :
+    TextFieldWithAutoCompletionListProvider<String>(emptyList()) {
     override fun getLookupString(item: String): String = item
+
+    override fun getPrefix(text: String, offset: Int): String {
+        var i = offset - 1
+        while (i >= 0 && !text[i].isWhitespace()) {
+            i--
+        }
+        return text.substring(i + 1, offset)
+    }
 
     override fun getItems(
         prefix: String?,
@@ -380,9 +385,10 @@ private class MacroCompletionProvider : TextFieldWithAutoCompletionListProvider<
         if (!currentPrefix.startsWith("@")) return emptyList()
 
         val macroPart = currentPrefix.substring(1)
-        if (macroPart.startsWith("oc:") || macroPart.startsWith("gem:")) {
-            val handle = macroPart.substringBefore(":")
-            val provider = AvailableProvider.fromHandle(handle)?.let { ConfigStore.getProvider(it.id) }
+        if (macroPart.contains(":")) {
+            val handle = macroPart.substringBefore(":").lowercase()
+            val provider =
+                AvailableProvider.fromHandle(handle)?.let { ConfigStore.getProvider(it.id) }
             if (provider != null) {
                 return runBlocking {
                     provider.getAvailableTargets().map { "@$handle:${it.index ?: it.id}" }
@@ -398,9 +404,10 @@ private class MacroCompletionProvider : TextFieldWithAutoCompletionListProvider<
     override fun createLookupBuilder(item: String): LookupElementBuilder {
         var builder = super.createLookupBuilder(item)
         if (item.contains(":")) {
-            val handle = item.substring(1, item.indexOf(":"))
+            val handle = item.substring(1, item.indexOf(":")).lowercase()
             val idOrIndex = item.substring(item.indexOf(":") + 1)
-            val provider = AvailableProvider.fromHandle(handle)?.let { ConfigStore.getProvider(it.id) }
+            val provider =
+                AvailableProvider.fromHandle(handle)?.let { ConfigStore.getProvider(it.id) }
             if (provider != null && idOrIndex.isNotEmpty()) {
                 val target = runBlocking { provider.getTarget(idOrIndex) }
                 if (target != null) {
