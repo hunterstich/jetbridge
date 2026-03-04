@@ -24,6 +24,7 @@ internal class JetbridgeSettings : PersistentStateComponent<JetbridgeSettings.St
         /** OpenCode settings **/
         override var openCodeLastAddress: String? = null
         override var openCodeLastSessionId: String? = null
+        override var geminiCliLastSessionName: String? = null
     }
 
     private var myState = State()

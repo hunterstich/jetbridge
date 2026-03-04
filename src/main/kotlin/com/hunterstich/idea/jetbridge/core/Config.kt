@@ -4,6 +4,7 @@ interface Config {
     var providerId: Int
     var openCodeLastAddress: String?
     var openCodeLastSessionId: String?
+    var geminiCliLastSessionName: String?
 }
 
 object ConfigStore {
@@ -28,11 +29,11 @@ object ConfigStore {
             }
         }
     }
-
 }
 
 private class TmpConfig(
     override var providerId: Int = 0,
     override var openCodeLastAddress: String? = null,
-    override var openCodeLastSessionId: String? = null
+    override var openCodeLastSessionId: String? = null,
+    override var geminiCliLastSessionName: String? = null,
 ) : Config

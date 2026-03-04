@@ -19,22 +19,23 @@ class GeminiCliProvider : Provider {
 
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    // TODO: Move into JetbridgeSetting and allow customization of tmux session name
-    private val tmuxSessionName = "gemini-jetbridge"
+    private val tmuxPrefix = "jetbridge"
 
     override val displayName: String = AvailableProvider.GeminiCli.displayName
+
+    private var session: String? = ConfigStore.config.geminiCliLastSessionName
     override val connectionDesc: String
-        get() = tmuxSessionName
+        get() = session ?: "none"
 
     override val isConnected: Boolean
-        get() = hasTmuxSession(tmuxSessionName)
+        get() = hasTmuxSession(session)
 
     override fun reconnect(projectPath: String?) {
-        if (hasTmuxSession(tmuxSessionName)) {
+        if (hasTmuxSession(session)) {
             scope.launch {
                 Bus.emit(
                     ProviderEvent.Status(
-                        "Jetbridge: Connected to gemini-cli tmux session \"$tmuxSessionName\""
+                        "Jetbridge: Connected to gemini-cli tmux session \"$session\""
                     )
                 )
             }
@@ -42,7 +43,7 @@ class GeminiCliProvider : Provider {
             scope.launch {
                 Bus.emit(
                     ProviderEvent.Error(
-                        "Jetbridge: No gemini-cli tmux session found for \"$tmuxSessionName\""
+                        "Jetbridge: No gemini-cli tmux session found"
                     )
                 )
             }
@@ -53,20 +54,23 @@ class GeminiCliProvider : Provider {
     override fun prompt(rawPrompt: String, snapshot: ContextSnapshot, targetId: String?) {
         scope.launch {
             try {
-                val targetSession = targetId ?: tmuxSessionName
-                if (!hasTmuxSession(targetSession)) {
+                val targetSession = targetId ?: session
+                if (targetSession == null || !hasTmuxSession(targetSession)) {
                     // Create the session if it doesn't exist
                     // TODO: Should session creation also launch a shell?
-                    try {
-                        ProcessBuilder("tmux", "new-session", "-d", "-s", targetSession, "gemini")
-                            .start()
-                            .waitFor()
-                    } catch (e: Exception) {
-                        Bus.emit(ProviderEvent.Error("Unable to create tmux session: ${e.message}"))
-                        return@launch
-                    }
+//                    try {
+//                        ProcessBuilder("tmux", "new-session", "-d", "-s", targetSession, "gemini")
+//                            .start()
+//                            .waitFor()
+//                    } catch (e: Exception) {
+//                        Bus.emit(ProviderEvent.Error("Unable to create tmux session: ${e.message}"))
+//                        return@launch
+//                    }
+                    Bus.emit(ProviderEvent.Error("No gemini-cli tmux session found."))
+                    return@launch
                 }
 
+                ConfigStore.config.geminiCliLastSessionName = targetSession
                 val projectPath = snapshot.projectPath ?: ""
                 var prompt = withContext(Dispatchers.Main) {
                     rawPrompt.expandInlineMacros(projectPath, snapshot)
@@ -93,7 +97,7 @@ class GeminiCliProvider : Provider {
         return try {
             val process = ProcessBuilder("tmux", "list-sessions", "-F", "#S").start()
             val sessions = process.inputStream.bufferedReader().readLines()
-            sessions.mapIndexed { index, name ->
+            sessions.filter { it.startsWith(tmuxPrefix) }.mapIndexed { index, name ->
                 Target(
                     id = name,
                     label = name,
@@ -112,10 +116,13 @@ class GeminiCliProvider : Provider {
         return targets.find { it.id == idOrIndex || it.index.toString() == idOrIndex }
     }
 
-    private fun hasTmuxSession(name: String): Boolean {
+    private fun hasTmuxSession(name: String?): Boolean {
+        if (name.isNullOrEmpty()) return false
+
         return try {
             val process = ProcessBuilder("tmux", "has-session", "-t", name).start()
-            process.waitFor() == 0
+            val success = process.waitFor() == 0
+            success
         } catch (e: Exception) {
             false
         }
