@@ -7,10 +7,10 @@ with agentic coding tools like opencode or gemini-cli from the IDE editor. Inspi
  [opencode.nvim](https://github.com/nickjvandyke/opencode.nvim).
 
 ### Why?
-* _Stay on the keyboard: Pull up a prompt dialog with an IntelliJ action or vim keybinding_
-* _Prompt more precisely: '@' macros expand into context in your final prompt, invoke specific
-agents, etc._
-* _Multi-agent workflow: '@' handles (e.g. @oc:<session> or @gem) control where your prompt is 
+* **_Stay on the keyboard:_** Pull up a prompt dialog with an IntelliJ action or vim keybinding_
+* **_Prompt more precisely:_** '@' macros expand into context in your final prompt, invoke specific
+agents, etc.
+* **_Multi-agent workflow:_** '@' handles (e.g. @oc:<session> or @gem) control where your prompt is 
 sent.  Orchestrate multiple agents/sessions in parallel.
 
 | Example                                                        | Result                                                                                                                                               |
