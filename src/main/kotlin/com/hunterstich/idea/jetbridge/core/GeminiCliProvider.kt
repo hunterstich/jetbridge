@@ -2,6 +2,7 @@ package com.hunterstich.idea.jetbridge.core
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -18,59 +19,21 @@ import kotlinx.coroutines.withContext
 class GeminiCliProvider : Provider {
 
     private val scope = CoroutineScope(Dispatchers.IO)
-
     private val tmuxPrefix = "jetbridge"
-
     override val displayName: String = AvailableProvider.GeminiCli.displayName
 
-    private var session: String? = ConfigStore.config.geminiCliLastSessionName
-    override val connectionDesc: String
-        get() = session ?: "none"
-
-    override val isConnected: Boolean
-        get() = hasTmuxSession(session)
-
-    override fun reconnect(projectPath: String?) {
-        if (hasTmuxSession(session)) {
-            scope.launch {
-                Bus.emit(
-                    ProviderEvent.Status(
-                        "Jetbridge: Connected to gemini-cli tmux session \"$session\""
-                    )
-                )
-            }
-        } else {
-            scope.launch {
-                Bus.emit(
-                    ProviderEvent.Error(
-                        "Jetbridge: No gemini-cli tmux session found"
-                    )
-                )
-            }
-        }
-    }
-
     @Suppress("UsePlatformProcessAwaitExit")
-    override fun prompt(rawPrompt: String, snapshot: ContextSnapshot, targetId: String?) {
+    override fun prompt(rawPrompt: String, snapshot: ContextSnapshot, target: Target) {
         scope.launch {
             try {
-                val targetSession = targetId ?: session
-                if (targetSession == null || !hasTmuxSession(targetSession)) {
-                    // Create the session if it doesn't exist
-                    // TODO: Should session creation also launch a shell?
-//                    try {
-//                        ProcessBuilder("tmux", "new-session", "-d", "-s", targetSession, "gemini")
-//                            .start()
-//                            .waitFor()
-//                    } catch (e: Exception) {
-//                        Bus.emit(ProviderEvent.Error("Unable to create tmux session: ${e.message}"))
-//                        return@launch
-//                    }
+                val session = target.id
+                if (!hasTmuxSession(session)) {
+                    // TODO: Create the session if it doesn't exist?
                     Bus.emit(ProviderEvent.Error("No gemini-cli tmux session found."))
+                    cancel()
                     return@launch
                 }
 
-                ConfigStore.config.geminiCliLastSessionName = targetSession
                 val projectPath = snapshot.projectPath ?: ""
                 var prompt = withContext(Dispatchers.Main) {
                     rawPrompt.expandInlineMacros(projectPath, snapshot)
@@ -78,12 +41,12 @@ class GeminiCliProvider : Provider {
                 prompt = prompt.cleanAllMacros()
 
                 // Append to gemini
-                ProcessBuilder("tmux", "send-keys", "-t", targetSession, prompt)
+                ProcessBuilder("tmux", "send-keys", "-t", session, prompt)
                     .start()
                     .waitFor()
                 delay(100)
                 // Submit the prompt
-                ProcessBuilder("tmux", "send-keys", "-t", targetSession, "C-m")
+                ProcessBuilder("tmux", "send-keys", "-t", session, "C-m")
                     .start()
                     .waitFor()
             } catch (e: Exception) {
@@ -97,23 +60,18 @@ class GeminiCliProvider : Provider {
         return try {
             val process = ProcessBuilder("tmux", "list-sessions", "-F", "#S").start()
             val sessions = process.inputStream.bufferedReader().readLines()
+            // Restrict sessions to those that start witih jetbridge*
             sessions.filter { it.startsWith(tmuxPrefix) }.mapIndexed { index, name ->
                 Target(
                     id = name,
                     label = name,
                     description = "tmux session",
                     provider = AvailableProvider.GeminiCli,
-                    index = index + 1
                 )
             }
         } catch (e: Exception) {
             emptyList()
         }
-    }
-
-    override suspend fun getTarget(idOrIndex: String): Target? {
-        val targets = getAvailableTargets()
-        return targets.find { it.id == idOrIndex || it.index.toString() == idOrIndex }
     }
 
     private fun hasTmuxSession(name: String?): Boolean {

@@ -1,6 +1,5 @@
 package com.hunterstich.idea.jetbridge
 
-import com.hunterstich.idea.jetbridge.core.AvailableProvider
 import com.hunterstich.idea.jetbridge.core.Config
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
@@ -20,11 +19,7 @@ import com.intellij.openapi.components.Storage
 )
 internal class JetbridgeSettings : PersistentStateComponent<JetbridgeSettings.State> {
     class State : Config {
-        override var providerId = AvailableProvider.OpenCode.id
-        /** OpenCode settings **/
-        override var openCodeLastAddress: String? = null
-        override var openCodeLastSessionId: String? = null
-        override var geminiCliLastSessionName: String? = null
+        override var lastTargetJson: String? = null
     }
 
     private var myState = State()

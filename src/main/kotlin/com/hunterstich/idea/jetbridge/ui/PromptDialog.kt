@@ -2,7 +2,7 @@ package com.hunterstich.idea.jetbridge.ui
 
 import com.hunterstich.idea.jetbridge.core.AvailableProvider
 import com.hunterstich.idea.jetbridge.core.ConfigStore
-import com.hunterstich.idea.jetbridge.core.Provider
+import com.hunterstich.idea.jetbridge.core.Target
 import com.hunterstich.idea.jetbridge.core.allMacroRegex
 import com.hunterstich.idea.jetbridge.core.allMacros
 import com.intellij.codeInsight.AutoPopupController
@@ -41,11 +41,8 @@ import com.maddyhome.idea.vim.api.injector
 import com.maddyhome.idea.vim.helper.inNormalMode
 import com.maddyhome.idea.vim.newapi.ij
 import com.maddyhome.idea.vim.newapi.vim
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.Font
@@ -72,25 +69,37 @@ class PromptDialog(
     private val project: Project?,
     dialogTitle: String,
     prepopulatedText: String,
-    private val provider: Provider,
 ) : DialogWrapper(project) {
 
     private val centerPanel: JComponent
-    private val isProviderConnected: Boolean = provider.isConnected
     private val editorTextField: EditorTextField
-    private val hintLabel: JBLabel = JBLabel("")
+    private val hintLabel: JBLabel = JBLabel("").apply {
+        foreground = UIUtil.getContextHelpForeground()
+        border = JBUI.Borders.emptyTop(6)
+    }
 
     val vimPlugin = PluginManagerCore.getPlugin(PluginId.getId("IdeaVIM"))
     val vimEnabled = vimPlugin != null && vimPlugin.isEnabled()
 
+    private val macroCompletionProvider = MacroCompletionProvider()
     val inputText: String
         get() = editorTextField.text
 
+    val lastUsedTarget: Target?
+    var target: Target? = null
+    val hasTarget: Boolean
+        get() = target != null
+
+    data class Result(val rawPrompt: String, val target: Target)
+
     companion object {
-        fun show(project: Project?, title: String, prepopulatedText: String): String? {
-            val dialog = PromptDialog(project, title, prepopulatedText, ConfigStore.provider)
+        fun show(project: Project?, title: String, prepopulatedText: String): Result? {
+            val dialog = PromptDialog(project, title, prepopulatedText)
             dialog.show()
-            return if (dialog.isOK) dialog.inputText else null
+            return if (dialog.isOK && dialog.hasTarget) Result(
+                rawPrompt = dialog.inputText,
+                target = dialog.target!!
+            ) else null
         }
     }
 
@@ -105,10 +114,15 @@ class PromptDialog(
             FileDocumentManagerImpl.registerDocument(document, virtualFile)
         }
 
-        val completionProvider = MacroCompletionProvider()
+        lastUsedTarget = if (ConfigStore.config.lastTargetJson != null) {
+            Json.decodeFromString(Target.serializer(), ConfigStore.config.lastTargetJson!!)
+        } else {
+            null
+        }
+
         editorTextField = TextFieldWithAutoCompletion(
             project,
-            completionProvider,
+            macroCompletionProvider,
             true, // showCompletionPopup = true
             prepopulatedText
         ).apply {
@@ -133,56 +147,59 @@ class PromptDialog(
                 // at the IntelliJ action layer (before the editor's default EnterAction).
                 // Shift+Enter is not matched by this shortcut, so it falls through to
                 // the default handler which inserts a newline.
-                if (isProviderConnected) {
-                    val enterAction = object : DumbAwareAction() {
-                        override fun actionPerformed(e: AnActionEvent) {
-                            val editor = editorTextField.editor
-                            val lookup =
-                                if (editor != null) LookupManager.getActiveLookup(editor) else null
-                            if (lookup != null) {
-                                // Trigger the standard "choose item" action
-                                ActionManager.getInstance()
-                                    .getAction(IdeActions.ACTION_CHOOSE_LOOKUP_ITEM)
-                                    ?.actionPerformed(e)
-                                return
-                            }
-                            doOKAction()
+                val enterAction = object : DumbAwareAction() {
+                    override fun actionPerformed(e: AnActionEvent) {
+                        val editor = editorTextField.editor
+                        val lookup =
+                            if (editor != null) LookupManager.getActiveLookup(editor) else null
+                        if (lookup != null) {
+                            // Trigger the standard "choose item" action
+                            ActionManager.getInstance()
+                                .getAction(IdeActions.ACTION_CHOOSE_LOOKUP_ITEM)
+                                ?.actionPerformed(e)
+                            return
                         }
+
+                        if (!hasTarget) {
+                            // TODO: Show an error that a target must be specified
+                            return
+                        }
+                        doOKAction()
                     }
-                    enterAction.registerCustomShortcutSet(
-                        CustomShortcutSet.fromString("ENTER"),
-                        editor.contentComponent,
-                        disposable,
-                    )
                 }
-                highlightMacros(editor)
+                enterAction.registerCustomShortcutSet(
+                    CustomShortcutSet.fromString("ENTER"),
+                    editor.contentComponent,
+                    disposable,
+                )
+                parseForMacros(editor)
             }
         }
 
         editorTextField.document.addDocumentListener(object : DocumentListener {
             override fun documentChanged(event: DocumentEvent) {
                 val editor = editorTextField.editor ?: return
-                highlightMacros(editor)
-                updateTargetLabel()
+                parseForMacros(editor)
+                parseForTarget()
 
                 // Make sure the auto-complete popup shows as soon as @ or : are typed
                 val newFragment = event.newFragment.toString()
                 if (newFragment.contains(":") || newFragment.contains("@")) {
-                    AutoPopupController.getInstance(project!!).scheduleAutoPopup(editor)
+                    project?.let { AutoPopupController.getInstance(it).scheduleAutoPopup(editor) }
                 }
             }
         }, this.disposable)
 
         centerPanel = JPanel(BorderLayout()).apply {
             add(editorTextField, BorderLayout.CENTER)
-            add(createHintContainer(), BorderLayout.SOUTH)
+            add(hintLabel, BorderLayout.SOUTH)
         }
 
         registerVimCommandShortcuts()
 
         init()
-        isOKActionEnabled = isProviderConnected
-        updateTargetLabel()
+        updateTarget(lastUsedTarget)
+        parseForTarget()
     }
 
     override fun createCenterPanel(): JComponent = centerPanel
@@ -249,7 +266,7 @@ class PromptDialog(
                 }
 
                 "wq" -> {
-                    if (!isProviderConnected) {
+                    if (!hasTarget) {
                         commandLine.close(refocusOwningEditor = false, resetCaret = false)
                         doCancelAction()
                     } else {
@@ -270,56 +287,45 @@ class PromptDialog(
         }
     }
 
-    private fun createHintContainer(): JComponent {
-        return hintLabel.apply {
-            foreground = UIUtil.getContextHelpForeground()
-            border = JBUI.Borders.emptyTop(6)
-            text = if (isProviderConnected) {
-                "Target: [${provider.connectionDesc}]"
-            } else {
-                "Specify a target with @oc (opencode) or @gem (gemini-cli)"
-            }
+    private fun updateTarget(target: Target?) {
+        val newTarget = target ?: lastUsedTarget
+        this.target = newTarget
+
+        isOKActionEnabled = newTarget != null
+        if (newTarget != null) {
+            hintLabel.text =
+                "Target: ${newTarget.provider.displayName} [${newTarget.label}]"
+        } else {
+            hintLabel.text = "Specify a target with @oc, @gem, etc."
         }
     }
 
-    private fun updateTargetLabel() {
+    private fun parseForTarget() {
         val text = editorTextField.text
         val routingMatch = """@(oc|gem)(:([a-zA-Z0-9.\-/:_]+))?""".toRegex().find(text)
 
-        CoroutineScope(Dispatchers.IO).launch {
-            val (providerId, targetIdOrIndex) = if (routingMatch != null) {
-                val handle = routingMatch.groupValues[1]
-                val idOrIndex = routingMatch.groupValues[3].takeIf { it.isNotEmpty() }
-                AvailableProvider.fromHandle(handle)?.id to idOrIndex
+        if (routingMatch != null) {
+            val handle = routingMatch.groupValues[1]
+            val indexStr = routingMatch.groupValues[3]
+            val index = indexStr.takeIf { it.isNotEmpty() }?.toIntOrNull()
+
+            if (index != null) {
+                // First try to get it from the cached list in the completion provider.
+                // If it's empty (e.g., on dialog open), resolve it manually.
+                val target = macroCompletionProvider.cachedTargets.getOrNull(index)
+                updateTarget(target)
             } else {
-                ConfigStore.config.providerId to null
+                updateTarget(null)
             }
-
-            if (providerId == null) return@launch
-
-            val targetProvider = ConfigStore.getProvider(providerId)
-            val target = if (targetIdOrIndex != null) {
-                targetProvider.getTarget(targetIdOrIndex)
-            } else {
-                null
-            }
-
-            withContext(Dispatchers.Main) {
-                if (routingMatch != null && targetIdOrIndex != null && target == null) {
-                    hintLabel.text =
-                        "Target: ${targetProvider.displayName} [New session will be created]"
-                } else {
-                    val labelText = target?.let { it.label } ?: targetProvider.connectionDesc
-                    hintLabel.text = "Target: ${targetProvider.displayName} [$labelText]"
-                }
-            }
+        } else {
+            updateTarget(null)
         }
     }
 
     /**
      * Scans the editor text for known macros and applies highlight markers.
      */
-    private fun highlightMacros(editor: Editor) {
+    private fun parseForMacros(editor: Editor) {
         val markupModel = editor.markupModel
         markupModel.removeAllHighlighters()
 
@@ -366,6 +372,9 @@ class PromptDialog(
 
 private class MacroCompletionProvider :
     TextFieldWithAutoCompletionListProvider<String>(emptyList()) {
+
+    var cachedTargets: List<Target> = emptyList()
+
     override fun getLookupString(item: String): String = item
 
     override fun getPrefix(text: String, offset: Int): String {
@@ -391,7 +400,8 @@ private class MacroCompletionProvider :
                 AvailableProvider.fromHandle(handle)?.let { ConfigStore.getProvider(it.id) }
             if (provider != null) {
                 return runBlocking {
-                    provider.getAvailableTargets().map { "@$handle:${it.index ?: it.id}" }
+                    cachedTargets = provider.getAvailableTargets()
+                    List(cachedTargets.size) { index -> "@$handle:$index" }
                 }
             }
         }
@@ -405,13 +415,15 @@ private class MacroCompletionProvider :
         var builder = super.createLookupBuilder(item)
         if (item.contains(":")) {
             val handle = item.substring(1, item.indexOf(":")).lowercase()
-            val idOrIndex = item.substring(item.indexOf(":") + 1)
-            val provider =
-                AvailableProvider.fromHandle(handle)?.let { ConfigStore.getProvider(it.id) }
-            if (provider != null && idOrIndex.isNotEmpty()) {
-                val target = runBlocking { provider.getTarget(idOrIndex) }
-                if (target != null) {
-                    builder = builder.withPresentableText("${target.index}. ${target.label}")
+            val indexPart = item.substring(item.indexOf(":") + 1)
+            val index = indexPart.toIntOrNull()
+
+            if (index != null && index < cachedTargets.size) {
+                val providerEnum = AvailableProvider.fromHandle(handle)
+                val provider = providerEnum?.let { ConfigStore.getProvider(it.id) }
+                if (provider != null && cachedTargets.lastIndex >= index) {
+                    val target = cachedTargets[index]
+                    builder = builder.withPresentableText("${index}. ${target.label}")
                         .withTailText("  ${target.description}", true)
                 }
             }
@@ -419,3 +431,4 @@ private class MacroCompletionProvider :
         return builder
     }
 }
+

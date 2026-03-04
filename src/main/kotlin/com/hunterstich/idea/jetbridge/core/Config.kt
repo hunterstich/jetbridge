@@ -1,10 +1,11 @@
 package com.hunterstich.idea.jetbridge.core
 
 interface Config {
-    var providerId: Int
-    var openCodeLastAddress: String?
-    var openCodeLastSessionId: String?
-    var geminiCliLastSessionName: String?
+    /**
+     * The last [Target] a prompt was sent to. This is used to attempt to set a default target
+     * in the prompt dialog if the last taret is still available.
+     */
+    var lastTargetJson: String?
 }
 
 object ConfigStore {
@@ -18,9 +19,6 @@ object ConfigStore {
 
     private val providers = mutableMapOf<Int, Provider>()
 
-    val provider: Provider
-        get() = getProvider(config.providerId)
-
     fun getProvider(id: Int): Provider {
         return providers.getOrPut(id) {
             when (id) {
@@ -32,8 +30,5 @@ object ConfigStore {
 }
 
 private class TmpConfig(
-    override var providerId: Int = 0,
-    override var openCodeLastAddress: String? = null,
-    override var openCodeLastSessionId: String? = null,
-    override var geminiCliLastSessionName: String? = null,
+    override var lastTargetJson: String? = null
 ) : Config

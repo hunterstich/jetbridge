@@ -28,9 +28,6 @@ class Jetbridge : ProjectActivity {
 
             // Listen for messages from long running provider tasks
             attachBus(project)
-
-            // Attach to the most recently connected provider
-            scope.launch { ConfigStore.provider.reconnect(project.basePath) }
         }
     }
 }

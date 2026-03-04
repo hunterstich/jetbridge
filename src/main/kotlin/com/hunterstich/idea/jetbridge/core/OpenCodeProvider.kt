@@ -17,58 +17,26 @@ class OpenCodeProvider : Provider {
 
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    private var server: OpenCodeApi.Server? = null
-    private var session: OpenCodeApi.Session? = null
+    // TODO: Update to a list of jobs and connections to support multiple servers
     private var sseJob: Job? = null
-
+    private var sseConnection: Pair<String, String>? = null
     override val displayName: String = AvailableProvider.OpenCode.displayName
-    override val connectionDesc: String
-        get() = session?.title ?: "none"
 
-    override val isConnected: Boolean
-        get() = server != null && session != null && sseJob?.isActive == true
-
-    override fun reconnect(projectPath: String?) {
-        scope.launch {
-            if (!ensureConnected(projectPath)) {
-                Bus.emit(ProviderEvent.Error("Jetbridge: No connected opencode session"))
-            }
-        }
-    }
-
-    override fun prompt(rawPrompt: String, snapshot: ContextSnapshot, targetId: String?) {
+    override fun prompt(rawPrompt: String, snapshot: ContextSnapshot, target: Target) {
         scope.launch {
             try {
-                val filePath: String? = snapshot.filePath
-                if (targetId != null) {
-                    val parts = targetId.split("/")
-                    if (parts.size == 2) {
-                        val address = parts[0]
-                        val sessionId = parts[1]
-                        if (server?.address != address || session?.id != sessionId) {
-                            val servers = OpenCodeApi.getServers()
-                            val targetServer = servers.find { it.address == address }
-                            val targetSession = OpenCodeApi.getSessions(address).getOrNull()?.find { it.id == sessionId }
-                            if (targetServer != null && targetSession != null) {
-                                connect(targetServer, targetSession)
-                            }
-                        }
-                    }
-                }
-
-                if (!ensureConnected(filePath)) {
+                val (address, sessionId) = target.connection
+                if (!ensureConnected(address, sessionId)) {
+                    // TODO: If the session doesn't exist, maybe create one?
                     Bus.emit(
-                        ProviderEvent.Error("No running opencode instance found in project path")
+                        ProviderEvent.Error("No running opencode found for the specified target")
                     )
                     cancel()
                     return@launch
                 }
 
-                // TODO: Clean up the messy null handling
-                val address = server?.address
-                val serverPath = server?.path?.directory
-                val sessionId = session?.id
-                if (address == null || serverPath == null || sessionId == null) {
+                val serverPath = OpenCodeApi.getServerPath(address).getOrNull()?.directory
+                if (serverPath == null) {
                     cancel()
                     return@launch
                 }
@@ -89,8 +57,9 @@ class OpenCodeProvider : Provider {
                 e.printStackTrace()
                 Bus.emit(
                     ProviderEvent.Error(
-                    "Unable to prompt opencode. Is it running in this projects path?"
-                ))
+                        "Unable to prompt opencode. Is the specified target running?"
+                    )
+                )
                 cancel()
             }
         }
@@ -104,21 +73,21 @@ class OpenCodeProvider : Provider {
             } ?: emptyList()
         }.sortedByDescending { it.first.time.updated }
 
-        return sessionsWithMeta.mapIndexed { index, (session, address) ->
+        return sessionsWithMeta.map { (session, address) ->
             Target(
                 id = "$address/${session.id}",
                 label = session.title,
                 description = address,
                 provider = AvailableProvider.OpenCode,
-                index = index + 1
             )
         }
     }
 
-    override suspend fun getTarget(idOrIndex: String): Target? {
-        val targets = getAvailableTargets()
-        return targets.find { it.id == idOrIndex || it.index.toString() == idOrIndex }
-    }
+    private val Target.connection: Pair<String, String>
+        get() {
+            val parts = id.split("/")
+            return parts[0] to parts[1]
+        }
 
     /**
      * Extract an opencode agent from the prompt string
@@ -134,86 +103,26 @@ class OpenCodeProvider : Provider {
         }
     }
 
-    private fun findSavedConnection(
-        servers: List<OpenCodeApi.Server>,
-        address: String,
-        sessionId: String,
-    ): Pair<OpenCodeApi.Server, OpenCodeApi.Session>? {
-        val selectedServer = servers.firstOrNull { it.address == address }
-        if (selectedServer != null) {
-            val selectedSession = OpenCodeApi.getSessions(selectedServer.address)
-                .getOrNull()
-                ?.firstOrNull { it.id == sessionId }
-            if (selectedSession != null) {
-                return selectedServer to selectedSession
-            }
+    private fun ensureConnected(address: String?, sessionId: String?): Boolean {
+        if (sseConnection?.first == address && sseConnection?.second == sessionId) return true
+        if (address == null || sessionId == null) return false
+        val sessions = OpenCodeApi.getSessions(address).getOrNull() ?: return false
+        if (!sessions.map { it.id }.contains(sessionId)) {
+            return false
         }
 
-        servers.forEach { server ->
-            val session = OpenCodeApi.getSessions(server.address)
-                .getOrNull()
-                ?.firstOrNull { it.id == sessionId }
-            if (session != null) {
-                return server to session
-            }
-        }
-        return null
-    }
-
-    private suspend fun ensureConnected(filePath: String?): Boolean {
-        if (!isConnected) {
-            val servers = OpenCodeApi.getServers()
-            if (servers.isEmpty()) return false
-
-            val lastAddress = ConfigStore.config.openCodeLastAddress
-            val lastSessionId = ConfigStore.config.openCodeLastSessionId
-            if (lastAddress != null && lastSessionId != null) {
-                val savedConnection = findSavedConnection(servers, lastAddress, lastSessionId)
-                if (savedConnection != null) {
-                    connect(savedConnection.first, savedConnection.second)
-                    return true
-                }
-            }
-
-            // Fall back to nearest server for current file path and its most recent session.
-            val nearestServer = if (filePath == null) {
-                // If there isn't a file path, there isn't a way to judge path nearness. Simply
-                // use the first server in the list.
-                servers.firstOrNull()
-            } else {
-                servers
-                    .sortedByDescending { it.path.directory.length }
-                    .firstOrNull { filePath.contains(it.path.directory) }
-            } ?: return false
-
-            val session = OpenCodeApi.getSessions(nearestServer.address)
-                .getOrNull()
-                ?.maxByOrNull { it.time.updated } ?: return false
-
-            connect(nearestServer, session)
-        }
-
-        return true
-    }
-
-    fun connect(server: OpenCodeApi.Server, session: OpenCodeApi.Session) {
-        this.server = server
-        this.session = session
-        ConfigStore.config.apply {
-            openCodeLastAddress = server.address
-            openCodeLastSessionId = session.id
-        }
-        OpenCodeApi.selectSession(server.address, session.id)
+        this.sseConnection = address to sessionId
+        OpenCodeApi.selectSession(address, sessionId)
         sseJob?.cancel()
         sseJob = scope.launch {
-            OpenCodeApi.getEventsFlow(server.address).collect { event ->
+            OpenCodeApi.getEventsFlow(address).collect { event ->
                 // Process events
                 when (event.type) {
                     "server.instance.disposed" -> {
                         cancel()
-                        this@OpenCodeProvider.server = null
-                        this@OpenCodeProvider.session = null
+                        this@OpenCodeProvider.sseConnection = null
                     }
+
                     "question.asked" -> {
                         Bus.emit(ProviderEvent.Message("Jetbridge: OpenCode asked a question"))
                     }
@@ -221,10 +130,6 @@ class OpenCodeProvider : Provider {
             }
 
         }
-        scope.launch {
-            Bus.emit(ProviderEvent.Status(
-                "Jetbridge: Connected to opencode session \"$connectionDesc\""
-            ))
-        }
+        return true
     }
 }
