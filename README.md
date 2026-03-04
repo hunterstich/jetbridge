@@ -10,8 +10,8 @@ with agentic coding tools like opencode or gemini-cli from the IDE editor. Inspi
 * _Stay on the keyboard: Pull up a prompt dialog with an IntelliJ action or vim keybinding_
 * _Prompt more precisely: '@' macros expand into context in your final prompt, invoke specific
 agents, etc._
-* _Multi-agentic tooling workflow: Specify an agentic coding target in your prompt with to 
-orchestrate many different agentic coding tools or sessions._
+* _Multi-agent workflow: '@' handles (e.g. @oc:<session> or @gem) control where your prompt is 
+sent.  Orchestrate multiple agents/sessions in parallel.
 
 | Example                                                        | Result                                                                                                                                               |
 |----------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
