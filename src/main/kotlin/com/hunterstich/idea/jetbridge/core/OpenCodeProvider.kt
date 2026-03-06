@@ -6,6 +6,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 
 /**
  * Implementation of Provider for OpenCode
@@ -47,6 +48,8 @@ class OpenCodeProvider : Provider {
                 val agent = extractAgent(prompt)
                 prompt = prompt.cleanAllMacros()
 
+                // TODO: Move to a dispatcher class?
+                ConfigStore.config.lastTargetJson = Json.encodeToString(Target.serializer(), target)
                 OpenCodeApi.sendPromptAsync(
                     address = address,
                     sessionId = sessionId,

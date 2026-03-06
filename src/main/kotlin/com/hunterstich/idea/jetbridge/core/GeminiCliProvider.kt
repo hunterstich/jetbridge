@@ -6,6 +6,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 
 
 /**
@@ -40,6 +41,8 @@ class GeminiCliProvider : Provider {
                 }
                 prompt = prompt.cleanAllMacros()
 
+                // TODO: Move to a dispatcher class?
+                ConfigStore.config.lastTargetJson = Json.encodeToString(Target.serializer(), target)
                 // Append to gemini
                 ProcessBuilder("tmux", "send-keys", "-t", session, prompt)
                     .start()
