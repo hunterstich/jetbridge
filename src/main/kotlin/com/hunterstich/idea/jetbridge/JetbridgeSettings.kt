@@ -5,6 +5,7 @@ import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
+import com.intellij.util.EnvironmentUtil
 
 /**
  * Intellij persistent settings class.
@@ -20,6 +21,7 @@ import com.intellij.openapi.components.Storage
 internal class JetbridgeSettings : PersistentStateComponent<JetbridgeSettings.State> {
     class State : Config {
         override var lastTargetJson: String? = null
+        override val env: Map<String, String> = EnvironmentUtil.getEnvironmentMap()
     }
 
     private var myState = State()

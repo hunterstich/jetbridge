@@ -97,7 +97,7 @@ object OpenCodeApi {
     suspend fun getServers(): List<Server> {
         // Find the process that was started with `opencode --port`
         val pids = mutableListOf<String>()
-        ProcessBuilder("pgrep", "-f", "opencode.*--port").start().let {
+        createProcess("pgrep", "-f", "opencode.*--port").start().let {
             it.inputStream
                 .bufferedReader()
                 .lines()
@@ -109,7 +109,7 @@ object OpenCodeApi {
         // Use the PID to look up the port opencode is running on
         val lsofOutputs = mutableListOf<String>()
         pids.forEach { pid ->
-            ProcessBuilder("lsof", "-w", "-iTCP",
+            createProcess("lsof", "-w", "-iTCP",
                 "-sTCP:LISTEN", "-P", "-n", "-a", "-p", pid)
                 .start().let {
                     it.inputStream

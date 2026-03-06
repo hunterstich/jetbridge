@@ -3,9 +3,16 @@ package com.hunterstich.idea.jetbridge.core
 interface Config {
     /**
      * The last [Target] a prompt was sent to. This is used to attempt to set a default target
-     * in the prompt dialog if the last taret is still available.
+     * in the prompt dialog if the last target is still available.
      */
     var lastTargetJson: String?
+
+    /**
+     * Environment variables to append to the current environment.
+     *
+     * See [ProcessUtils.createProcess(command)] for more details.
+     */
+    val env: Map<String, String>
 }
 
 object ConfigStore {
@@ -30,5 +37,6 @@ object ConfigStore {
 }
 
 private class TmpConfig(
-    override var lastTargetJson: String? = null
+    override var lastTargetJson: String? = null,
+    override val env: Map<String, String> = System.getenv()
 ) : Config

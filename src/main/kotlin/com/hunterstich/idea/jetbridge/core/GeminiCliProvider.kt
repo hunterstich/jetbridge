@@ -44,24 +44,28 @@ class GeminiCliProvider : Provider {
                 // TODO: Move to a dispatcher class?
                 ConfigStore.config.lastTargetJson = Json.encodeToString(Target.serializer(), target)
                 // Append to gemini
-                ProcessBuilder("tmux", "send-keys", "-t", session, prompt)
+                createProcess("tmux", "send-keys", "-t", session, prompt)
                     .start()
                     .waitFor()
                 delay(100)
                 // Submit the prompt
-                ProcessBuilder("tmux", "send-keys", "-t", session, "C-m")
+                createProcess("tmux", "send-keys", "-t", session, "C-m")
                     .start()
                     .waitFor()
             } catch (e: Exception) {
-                e.printStackTrace()
                 Bus.emit(ProviderEvent.Error("Error sending prompt to tmux: ${e.message}"))
+                Bus.emitLog(
+                    GeminiCliProvider::class.java.name,
+                    ProviderEvent.Log.Type.Error,
+                    e.message ?: e.toString()
+                )
             }
         }
     }
 
     override suspend fun getAvailableTargets(): List<Target> {
         return try {
-            val process = ProcessBuilder("tmux", "list-sessions", "-F", "#S").start()
+            val process = createProcess("tmux", "list-sessions", "-F", "#S").start()
             val sessions = process.inputStream.bufferedReader().readLines()
             // Restrict sessions to those that start witih jetbridge*
             sessions.filter { it.startsWith(tmuxPrefix) }.mapIndexed { index, name ->
@@ -73,6 +77,11 @@ class GeminiCliProvider : Provider {
                 )
             }
         } catch (e: Exception) {
+            Bus.emitLog(
+                GeminiCliProvider::class.java.name,
+                ProviderEvent.Log.Type.Error,
+                e.message ?: e.toString()
+            )
             emptyList()
         }
     }
@@ -81,10 +90,17 @@ class GeminiCliProvider : Provider {
         if (name.isNullOrEmpty()) return false
 
         return try {
-            val process = ProcessBuilder("tmux", "has-session", "-t", name).start()
+            val process = createProcess("tmux", "has-session", "-t", name).start()
             val success = process.waitFor() == 0
             success
         } catch (e: Exception) {
+            scope.launch {
+                Bus.emitLog(
+                    GeminiCliProvider::class.java.name,
+                    ProviderEvent.Log.Type.Error,
+                    e.message ?: e.toString()
+                )
+            }
             false
         }
     }

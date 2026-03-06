@@ -55,8 +55,13 @@ enum class AvailableProvider(val id: Int, val displayName: String, val handle: S
 
 sealed class ProviderEvent {
     data class Status(val message: String) : ProviderEvent()
-    data class Message(val message: String): ProviderEvent()
+    data class Message(val message: String) : ProviderEvent()
     data class Error(val error: String, val indefinite: Boolean = false) : ProviderEvent()
+    data class Log(val category: String, val type: Type, val message: String) : ProviderEvent() {
+        enum class Type {
+            Info, Error, Warning
+        }
+    }
 }
 
 object Bus {
@@ -67,5 +72,17 @@ object Bus {
 
     suspend fun emit(msg: ProviderEvent) {
         _messages.emit(msg)
+    }
+
+    suspend fun emitStatus(message: String) {
+        _messages.emit(ProviderEvent.Status(message))
+    }
+
+    suspend fun emitError(message: String, indefinite: Boolean = false) {
+        _messages.emit(ProviderEvent.Error(message, indefinite))
+    }
+
+    suspend fun emitLog(category: String, type: ProviderEvent.Log.Type, message: String) {
+        _messages.emit(ProviderEvent.Log(category, type, message))
     }
 }

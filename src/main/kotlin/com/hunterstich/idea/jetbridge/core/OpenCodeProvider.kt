@@ -57,11 +57,15 @@ class OpenCodeProvider : Provider {
                     agent = agent
                 )
             } catch (e: Exception) {
-                e.printStackTrace()
                 Bus.emit(
                     ProviderEvent.Error(
                         "Unable to prompt opencode. Is the specified target running?"
                     )
+                )
+                Bus.emitLog(
+                    OpenCodeProvider::class.java.name,
+                    ProviderEvent.Log.Type.Error,
+                    e.message ?: e.toString()
                 )
                 cancel()
             }
