@@ -15,6 +15,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CustomShortcutSet
 import com.intellij.openapi.actionSystem.IdeActions
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
+import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.colors.EditorColorsManager
@@ -105,14 +106,6 @@ class PromptDialog(
 
     init {
         title = dialogTitle
-        val document = EditorFactory.getInstance().createDocument(prepopulatedText)
-        if (vimEnabled) {
-            // Hack to force vim being enabled by getting around
-            // com.maddyhome.idea.vim.helper.EditorHelper#Editor.isNotFileEditorExceptAllowed()
-            // which disables vim in tool windows and dialogs except for a few hard-coded exceptions
-            val virtualFile = LightVirtualFile("Dummy.txt", prepopulatedText)
-            FileDocumentManagerImpl.registerDocument(document, virtualFile)
-        }
 
         lastUsedTarget = if (ConfigStore.config.lastTargetJson != null) {
             Json.decodeFromString(Target.serializer(), ConfigStore.config.lastTargetJson!!)
@@ -126,6 +119,7 @@ class PromptDialog(
             true, // showCompletionPopup = true
             prepopulatedText
         ).apply {
+            setOneLineMode(false)
             // Re-use our document if possible, though TextFieldWithAutoCompletion creates its own.
             // For now, let's just let it create its own and we'll apply settings.
             preferredSize = Dimension(450, 150)
