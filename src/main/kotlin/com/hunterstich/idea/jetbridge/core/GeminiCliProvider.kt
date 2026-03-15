@@ -28,7 +28,7 @@ class GeminiCliProvider : Provider {
         scope.launch {
             try {
                 val session = target.id
-                if (!hasTmuxSession(session)) {
+                if (!hasTmuxTarget(session)) {
                     // TODO: Create the session if it doesn't exist?
                     Bus.emit(ProviderEvent.Error("No gemini-cli tmux session found."))
                     cancel()
@@ -64,11 +64,16 @@ class GeminiCliProvider : Provider {
     }
 
     override suspend fun getAvailableTargets(): List<Target> {
+        val sessions = getSessionTargets()
+        val panes = getPaneTargets()
+        return sessions + panes
+    }
+
+    private fun getSessionTargets(): List<Target> {
         return try {
             val process = createProcess("tmux", "list-sessions", "-F", "#S").start()
             val sessions = process.inputStream.bufferedReader().readLines()
-            // Restrict sessions to those that start witih jetbridge*
-            sessions.filter { it.startsWith(tmuxPrefix) }.mapIndexed { index, name ->
+            sessions.filter { it.startsWith(tmuxPrefix) }.map { name ->
                 Target(
                     id = name,
                     label = name,
@@ -77,16 +82,47 @@ class GeminiCliProvider : Provider {
                 )
             }
         } catch (e: Exception) {
-            Bus.emitLog(
-                GeminiCliProvider::class.java.name,
-                ProviderEvent.Log.Type.Error,
-                e.message ?: e.toString()
-            )
+            scope.launch {
+                Bus.emitLog(
+                    GeminiCliProvider::class.java.name,
+                    ProviderEvent.Log.Type.Error,
+                    e.message ?: e.toString()
+                )
+            }
             emptyList()
         }
     }
 
-    private fun hasTmuxSession(name: String?): Boolean {
+    private fun getPaneTargets(): List<Target> {
+        return try {
+            val process = createProcess(
+                "tmux", "list-panes", "-a",
+                "-F", "#{session_name}:#{window_index}.#{pane_index}|#{session_name}|#{window_name}|#{window_index}|#{pane_index}"
+            ).start()
+            val lines = process.inputStream.bufferedReader().readLines()
+            lines.mapNotNull { parsePaneLine(it) }
+                .filter { it.windowName.contains("gem", ignoreCase = true) }
+                .map { pane ->
+                    Target(
+                        id = pane.tmuxId,
+                        label = pane.windowName,
+                        description = "tmux pane · ${pane.tmuxId}",
+                        provider = AvailableProvider.GeminiCli,
+                    )
+                }
+        } catch (e: Exception) {
+            scope.launch {
+                Bus.emitLog(
+                    GeminiCliProvider::class.java.name,
+                    ProviderEvent.Log.Type.Error,
+                    e.message ?: e.toString()
+                )
+            }
+            emptyList()
+        }
+    }
+
+    private fun hasTmuxTarget(name: String?): Boolean {
         if (name.isNullOrEmpty()) return false
 
         return try {
@@ -104,4 +140,24 @@ class GeminiCliProvider : Provider {
             false
         }
     }
+}
+
+internal data class PaneInfo(
+    val tmuxId: String,
+    val sessionName: String,
+    val windowName: String,
+    val windowIndex: String,
+    val paneIndex: String,
+)
+
+internal fun parsePaneLine(line: String): PaneInfo? {
+    val parts = line.split("|")
+    if (parts.size < 5) return null
+    return PaneInfo(
+        tmuxId = parts[0],
+        sessionName = parts[1],
+        windowName = parts[2],
+        windowIndex = parts[3],
+        paneIndex = parts[4],
+    )
 }
